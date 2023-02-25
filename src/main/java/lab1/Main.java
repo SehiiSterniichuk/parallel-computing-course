@@ -82,12 +82,13 @@ public class Main {
         if (size % threadNumber != 0) {
             throw new IllegalArgumentException("size divided by threadNumber should be integer.\n size = " + size + " threadNumber = " + threadNumber);
         }
-        int pairsPerThread = size / threadNumber;
+        int rowsPerThread = (size / threadNumber);
         List<Thread> threads = new ArrayList<>(threadNumber);
-        for (int i = 0; i < size; i += pairsPerThread) {
+        for (int i = 0; i < size; i += rowsPerThread) {
             final int startIndex = i;
+            final int endIndexExclusively = rowsPerThread + i;
             Thread thread = new Thread(() -> {
-                for (int j = startIndex; j < pairsPerThread; ++j) {
+                for (int j = startIndex; j < endIndexExclusively; j += 2) {
                     matrix.swapRows(j, j + 1);
                 }
             });
