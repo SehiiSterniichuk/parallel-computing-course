@@ -25,11 +25,7 @@ public class Matrix {
     }
 
     public void swapRows(int row1, int row2) {
-        swapRowsInRange(row1, row2, 0, size);
-    }
-
-    public void swapRowsInRange(int row1, int row2, int startColumn, int endColumnExclusively) {
-        for (int i = startColumn; i < endColumnExclusively; ++i) {
+        for (int i = 0; i < size; ++i) {
             double temp = data[row1][i];
             data[row1][i] = data[row2][i];
             data[row2][i] = temp;

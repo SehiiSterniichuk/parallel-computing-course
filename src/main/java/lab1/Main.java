@@ -10,7 +10,7 @@ public class Main {
     private static final int CPU_CORES = 8;
     private static final int CPU_LOGICAL_CORES = 16;
     private static final int MIN_THREADS = CPU_CORES / 2;
-    private static final long TIME_FOR_GARBAGE_COLLECTOR = TimeUnit.SECONDS.toMillis(2);
+    private static final long SLEEP_TIME = TimeUnit.SECONDS.toMillis(2);
 
     private static final List<Integer> threadNumbers = List.of(
             1,
@@ -63,7 +63,7 @@ public class Main {
 
     private static void sleep() {
         try {
-            Thread.sleep(TIME_FOR_GARBAGE_COLLECTOR);
+            Thread.sleep(SLEEP_TIME);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
