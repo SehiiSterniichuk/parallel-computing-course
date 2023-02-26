@@ -10,7 +10,7 @@ public class Main {
     private static final int CPU_CORES = 8;
     private static final int CPU_LOGICAL_CORES = 16;
     private static final int MIN_THREADS = CPU_CORES / 2;
-    private static final long SLEEP_TIME = TimeUnit.SECONDS.toMillis(2);
+    private static final long SLEEP_TIME = TimeUnit.SECONDS.toMillis(1);
 
     private static final List<Integer> threadNumbers = List.of(
             1,
@@ -23,6 +23,7 @@ public class Main {
             CPU_LOGICAL_CORES * 16
     );
     private static final List<Integer> dimensionNumbers = List.of(
+            MIN_THREADS * 256 / 2,
             MIN_THREADS * 256,
             MIN_THREADS * 256 * 2,
             MIN_THREADS * 256 * 4,
@@ -48,11 +49,9 @@ public class Main {
             if (threadNumber <= 1) {
                 executeSingleThread(matrix);
                 return;
-            }
-            if (threadNumber % 2 != 0) {
+            } else if (threadNumber % 2 != 0) {
                 throw new IllegalArgumentException("Thread number must be even for ability to swap rows in parallel");
-            }
-            if (size <= threadNumber) {
+            } else if (size <= threadNumber) {
                 String message = "Number of threads can't be less than dimension of matrix. Dimension: "
                         + size + " threads: " + threadNumber;
                 throw new IllegalArgumentException(message);
@@ -102,6 +101,7 @@ public class Main {
 
     private static void printResult(Matrix matrix, int threadNumber, long time) {
         System.out.printf("Matrix dimension: %d, number of threads: %d, time: %d\n", matrix.size, threadNumber, time);
+//        System.out.printf("%d,%d,%d\n", matrix.size, threadNumber, time);
     }
 
     public static void joinAll(List<Thread> threads) {
@@ -118,6 +118,6 @@ public class Main {
         long start = System.nanoTime();
         runnable.run();
         long finish = System.nanoTime();
-        timeConsumer.accept((finish - start) / 1000000);
+        timeConsumer.accept((finish - start) / 1000);
     }
 }
