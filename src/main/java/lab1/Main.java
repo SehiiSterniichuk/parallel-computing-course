@@ -49,8 +49,6 @@ public class Main {
             if (threadNumber <= 1) {
                 executeSingleThread(matrix);
                 return;
-            } else if (threadNumber % 2 != 0) {
-                throw new IllegalArgumentException("Thread number must be even for ability to swap rows in parallel");
             } else if (size <= threadNumber) {
                 String message = "Number of threads can't be less than dimension of matrix. Dimension: "
                         + size + " threads: " + threadNumber;
