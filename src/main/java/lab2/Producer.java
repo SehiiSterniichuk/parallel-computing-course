@@ -1,8 +1,10 @@
 package lab2;
 
 import java.util.Random;
+import java.lang.*;
 
 import static lab2.Constants.*;
+import static lab2.Printer.print;
 
 public class Producer {
 
@@ -10,7 +12,7 @@ public class Producer {
 
     public int nextId = 0;
 
-    private final Random rand = new Random();
+    private static final Random rand = new Random();
 
     private long totalTimeOfExecutionAllTasks = 0L;
 
@@ -22,11 +24,13 @@ public class Producer {
 
 
     public static void main(String[] args) throws InterruptedException {
+        //todo write statistic counter
         System.out.println("Program has started");
         ThreadPool threadPool = new ThreadPool(NUMBER_OF_THREADS);
         Producer producer = new Producer(threadPool);
         final Object waiter = threadPool.getProducerWaiter();
-        final int NUMBER_OF_LIFECYCLES = 8;
+        final int NUMBER_OF_LIFECYCLES = 4;
+        final int INTERRUPT_CYCLE_ID = 2;
         for (int i = 0; i < NUMBER_OF_LIFECYCLES; i++) {
             Thread thread = new Thread(producer::work);
             thread.start();
@@ -35,11 +39,17 @@ public class Producer {
             thread.join();
             System.out.println("The queue has finished to fill");
             threadPool.execute();
-            while (threadPool.hasTasksToDo()) {
-                synchronized (waiter){
+            if(INTERRUPT_CYCLE_ID == i){
+                sleep(unit.toMillis(getRandomExecutionTime()));
+                threadPool.terminateImmediately();
+                break;
+            }
+            while (!threadPool.producerCanAddNewTasks()) {
+                synchronized (waiter) {
                     waiter.wait();
                 }
             }
+            print("Producer can add new tasks");
         }
         threadPool.terminate();
     }
@@ -53,7 +63,7 @@ public class Producer {
     }
 
     public void work() {
-        System.out.println("The queue has started to fill");
+        System.out.println("The queue has started to fill");//todo check sout
         isWorking = true;
         while (isWorking) {
             Task newTask = generateTask();
@@ -61,7 +71,7 @@ public class Producer {
             if (!isAcceptableTask) continue;
             pool.addTask(newTask);
             totalTimeOfExecutionAllTasks += newTask.executionTime();
-            sleep(unit.toMillis(QUEUE_FILLING_TIME) / PRODUCER_CREATE_COEFFICIENT);
+            sleep(PRODUCER_WORK_TIME);
         }
         totalTimeOfExecutionAllTasks = 0;
         nextId = 0;
@@ -72,8 +82,12 @@ public class Producer {
     }
 
     private Task generateTask() {
-        long randomExecutionTime = rand.nextLong(MAX_TASK_DURATION - MIN_TASK_DURATION + 1) + MIN_TASK_DURATION;
+        long randomExecutionTime = getRandomExecutionTime();
         return new Task(getNextId(), randomExecutionTime);
+    }
+
+    private static long getRandomExecutionTime() {
+        return rand.nextLong(MAX_TASK_DURATION - MIN_TASK_DURATION + 1) + MIN_TASK_DURATION;
     }
 
     private int getNextId() {
