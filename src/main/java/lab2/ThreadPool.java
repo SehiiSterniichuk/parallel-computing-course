@@ -6,50 +6,64 @@ import static lab2.Printer.print;
 
 public class ThreadPool {
 
-    private final Queue<Task> queue;
+    private final TaskQueue queue;
+
+    private final QueueTimeCounter queueCounter;
+
+    private int executionNumber = 0;
 
     private final List<Thread> workers;
 
-    private final Object lock = new Object();
+    private final ThreadWaitingCounter waitingCounter;
 
-    private boolean terminated = false;//todo should it be volatile?
+    private final Object lock;
+
+    private boolean terminated = false;
 
     private int counterOfWorkingThreads = 0;
 
     private boolean initialized = false;
 
-    private final Object producerWaiter = new Object();
+    private final Object producerWaiter;
 
     public ThreadPool(int numberOfWorkers) {
         if (numberOfWorkers < 1) {
             throw new IllegalArgumentException("number of workers must be bigger than 0");
         }
-        queue = new LinkedList<>();
         workers = new ArrayList<>(numberOfWorkers);
         for (int i = 0; i < numberOfWorkers; ++i) {
             workers.add(new Thread(this::routine));
         }
+        producerWaiter = new Object();
+        lock = new Object();
+        queue = new TaskQueue();
+        queueCounter = new QueueTimeCounter();
+        waitingCounter = new ThreadWaitingCounter();
     }
 
     public void addTask(Task task) {
         if (task == null) return;
+        boolean acceptedTask;
         synchronized (lock) {
             if (terminated || counterOfWorkingThreads >= 1) {//counterOfWorkingThreads >= 1 means that at least 1 worker is working on the task
                 print("The thread pool rejected the task: " + task);
                 return;
             }
-            queue.add(task);
+            acceptedTask = queue.add(task);
         }
-        print("Producer has added task: " + task);
+        if (acceptedTask) print("Producer has added task: " + task);
     }
 
     public void execute() {
         synchronized (lock) {
+            if (terminated) {
+                return;
+            }
+            queueCounter.setStart();
+            executionNumber++;
             if (initialized) {
                 lock.notifyAll();
                 print("The producer notified the workers to start performing new tasks");
-                return;
-            } else if (terminated) {
                 return;
             }
             counterOfWorkingThreads = workers.size();
@@ -65,10 +79,13 @@ public class ThreadPool {
             Task task;
             synchronized (lock) {
                 try {
-                    while (!terminated && queue.isEmpty()) {
+                    if (!terminated && queue.isEmpty()) {
+                        if (counterOfWorkingThreads == workers.size()) queueCounter.setFinish();
+                        long start = System.nanoTime();
                         waitForANewTask(threadName);
+                        waitingCounter.count(start);
                     }
-                    if (terminated && queue.isEmpty()) {
+                    if (terminated) {
                         print(threadName + " is terminated");
                         return;
                     }
@@ -91,7 +108,9 @@ public class ThreadPool {
         counterOfWorkingThreads--;
         if (counterOfWorkingThreads < 1) notifyProducer(threadName);
         print(threadName + " is waiting for a new task👉👈");
-        lock.wait();
+        while (!terminated && queue.isEmpty()) {
+            lock.wait();
+        }
         counterOfWorkingThreads++;
         print(threadName + " has woken up");
     }
@@ -99,8 +118,8 @@ public class ThreadPool {
     private void notifyProducer(String threadName) {
         synchronized (producerWaiter) {
             producerWaiter.notify();
-            print(threadName + " has notified the Producer to fill the queue");
         }
+        print(threadName + " has notified the Producer to fill the queue");
     }
 
     public void terminate() {
@@ -121,11 +140,14 @@ public class ThreadPool {
             }
         }
         print("The termination of thread pool has finished");
+        print("queue.size(): " + queue.size());
     }
 
-    public void terminateImmediately() {
-        print("The producer has commanded the termination of the thread pool.☠️");
-        terminated = true;
+    public void interrupt() {
+        print("The producer has commanded the interruption of the thread pool.☠️");
+        synchronized (lock) {
+            terminated = true;
+        }
         for (Thread thread : workers) {
             thread.interrupt();
         }
@@ -141,5 +163,58 @@ public class ThreadPool {
 
     public Object getProducerWaiter() {
         return producerWaiter;
+    }
+
+    public Result getResult() {
+        int numberOfRejectedTasks = queue.getNumberOfRejectedTasks();
+        float averageNumberOfRejectedTasks = ((float) numberOfRejectedTasks) / executionNumber;
+        return new Result(waitingCounter.averageTimeOfThreadInWaitingState(),
+                queueCounter.maxTimeOfActiveQueue,
+                queueCounter.minTimeOfActiveQueue,
+                numberOfRejectedTasks,
+                averageNumberOfRejectedTasks);
+    }
+
+    private static class QueueTimeCounter {
+
+        private long maxTimeOfActiveQueue = 0;
+
+        private long minTimeOfActiveQueue = 0;
+
+        private long start;
+
+        private void setStart() {
+            start = System.nanoTime();
+        }
+
+        private void setFinish() {
+            long finish = System.nanoTime();
+            long result = finish - start;
+            if (minTimeOfActiveQueue == 0) {
+                minTimeOfActiveQueue = maxTimeOfActiveQueue = result;
+            } else if (maxTimeOfActiveQueue < result) {
+                maxTimeOfActiveQueue = result;
+            } else if (minTimeOfActiveQueue > result) {
+                minTimeOfActiveQueue = result;
+            }
+        }
+    }
+
+    private static class ThreadWaitingCounter {
+
+        private long totalWaitingTime = 0;
+
+        private int numberOfWaitingThreads = 0;
+
+        private void count(long start) {
+            long finish = System.nanoTime();
+            long result = finish - start;
+            totalWaitingTime += result;
+            numberOfWaitingThreads++;
+        }
+
+        private long averageTimeOfThreadInWaitingState() {
+            return totalWaitingTime / numberOfWaitingThreads;
+        }
     }
 }
