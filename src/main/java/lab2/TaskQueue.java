@@ -10,6 +10,7 @@ public class TaskQueue {
     private long totalTimeOfExecutionAllTasks = 0L;
 
     private int numberOfRejectedTasks = 0;
+    private int numberOfAcceptedTasks = 0;
 
     private final Queue<Task> queue = new LinkedList<>();
 
@@ -17,6 +18,7 @@ public class TaskQueue {
         if (checkTask(task)) {
             queue.add(task);
             totalTimeOfExecutionAllTasks += task.executionTime();
+            numberOfAcceptedTasks++;
             return true;
         }
         numberOfRejectedTasks++;
@@ -44,5 +46,9 @@ public class TaskQueue {
 
     public int getNumberOfRejectedTasks() {
         return numberOfRejectedTasks;
+    }
+
+    public int getNumberOfAcceptedTasks() {
+        return numberOfAcceptedTasks;
     }
 }

@@ -8,7 +8,9 @@ public record Result(long averageTimeOfThreadInWaitingState,
                      long maxTimeOfActiveQueue,
                      long minTimeOfActiveQueue,
                      int numberOfRejectedTasks,
-                     float averageNumberOfRejectedTasks) {
+                     float averageNumberOfRejectedTasks,
+                     int numberOfAcceptedTasks,
+                     float averageNumberOfAcceptedTasks) {
 
     @Override
     public String toString() {
@@ -18,6 +20,8 @@ public record Result(long averageTimeOfThreadInWaitingState,
                 ",\nminTimeOfActiveQueue=" + convertNanoToUnit(minTimeOfActiveQueue) +
                 ",\nnumberOfRejectedTasks=" + numberOfRejectedTasks +
                 ",\naverageNumberOfRejectedTasks=" + averageNumberOfRejectedTasks +
+                ",\nnumberOfAcceptedTasks=" + numberOfAcceptedTasks +
+                ",\naverageNumberOfAcceptedTasks=" + averageNumberOfAcceptedTasks +
                 "\n}";
     }
 

@@ -1,6 +1,7 @@
 package lab2;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
 import static lab2.Printer.print;
 
@@ -8,23 +9,25 @@ public class ThreadPool {
 
     private final TaskQueue queue;
 
-    private final QueueTimeCounter queueCounter;
+    private final QueueTimeCounter queueCounter;//вимірює мінімальний та максимальний час заповненої черги
 
-    private int executionNumber = 0;
+    private int executionNumber = 0;//лічильник кількості інтервалів заповнення черги
 
     private final List<Thread> workers;
 
-    private final ThreadWaitingCounter waitingCounter;
+    private final ThreadWaitingCounter waitingCounter;//лічильник середнього часу очікування потоку
 
-    private final Object lock;
+    private final Object lock;//об'єкт синхронізації. Монітор
 
-    private boolean terminated = false;
+    private boolean isTerminated = false;//прапор що позначає чи пул потоків не завершений(термінований) ще
 
     private int counterOfWorkingThreads = 0;
+    //лічильник не сплячих потоків який потрібний для того щоб Виробник додавав нові задачі тільки коли всі потоки завершили свої задачі та сплять
 
-    private boolean initialized = false;
+    private boolean initialized = false;//прапор позначає що пул запустив свої потоки
 
     private final Object producerWaiter;
+    //монітор потрібен для синхронізації роботи з Виробником задач. Пул "будить" інший потік повідомляючи що вже пора додавати нові завдання
 
     public ThreadPool(int numberOfWorkers) {
         if (numberOfWorkers < 1) {
@@ -43,26 +46,26 @@ public class ThreadPool {
 
     public void addTask(Task task) {
         if (task == null) return;
-        boolean acceptedTask;
         synchronized (lock) {
-            if (terminated || counterOfWorkingThreads >= 1) {//counterOfWorkingThreads >= 1 means that at least 1 worker is working on the task
+            if (isTerminated || counterOfWorkingThreads >= 1) {
+                //counterOfWorkingThreads >= 1 означає що лишився хоча б 1 потік який ще працює над своєю задачею
                 print("The thread pool rejected the task: " + task);
                 return;
             }
-            acceptedTask = queue.add(task);
+            if (!queue.add(task)) return;//якщо черга вертає false отже задача не поміщається в ліміт
         }
-        if (acceptedTask) print("Producer has added task: " + task);
+        print("Producer has added task: " + task);//вивід на екран успішно доданих задач
     }
 
     public void execute() {
         synchronized (lock) {
-            if (terminated) {
+            if (isTerminated) {
                 return;
             }
-            queueCounter.setStart();
+            queueCounter.setStart();//починаємо відлік часу заповненої черги
             executionNumber++;
             if (initialized) {
-                lock.notifyAll();
+                lock.notifyAll();//якщо initialized == true отже потоки вже працюють і їх треба всього лише розбудити щоб вони почали працювати
                 print("The producer notified the workers to start performing new tasks");
                 return;
             }
@@ -79,13 +82,19 @@ public class ThreadPool {
             Task task;
             synchronized (lock) {
                 try {
-                    if (!terminated && queue.isEmpty()) {
+                    if (!isTerminated && queue.isEmpty()) {
                         if (counterOfWorkingThreads == workers.size()) queueCounter.setFinish();
+    //якщо counterOfWorkingThreads == workers.size(), то це перший потік який виявив що черга пуста, отже можна зупиняти queueCounter лічильник
                         long start = System.nanoTime();
                         waitForANewTask(threadName);
-                        waitingCounter.count(start);
+                        if (!isTerminated) {
+    /*потік може проснутися через те що робота пула завершена і
+    цей результат може бути меншим за нормальний час очікування потоку нових задач
+    тому потрібна умова !isTerminated*/
+                            waitingCounter.count(start);
+                        }
                     }
-                    if (terminated) {
+                    if (isTerminated) {
                         print(threadName + " is terminated");
                         return;
                     }
@@ -98,6 +107,7 @@ public class ThreadPool {
             try {
                 task.run();
             } catch (RuntimeInterruptedException e) {
+                //Роботу пулу треба моментально зупинити без очікування на завершення поточних завдань. Тому було отримано RuntimeInterruptedException
                 print(e.getMessage());
                 return;
             }
@@ -107,9 +117,12 @@ public class ThreadPool {
     private void waitForANewTask(String threadName) throws InterruptedException {
         counterOfWorkingThreads--;
         if (counterOfWorkingThreads < 1) notifyProducer(threadName);
+        // якщо counterOfWorkingThreads < 1 тоді це останній робочий потік, отже потрібно починати заповнення черги
         print(threadName + " is waiting for a new task👉👈");
-        while (!terminated && queue.isEmpty()) {
-            lock.wait();
+        while (!isTerminated && queue.isEmpty()) {
+            lock.wait();//чекаємо поки робота пулу не завершиться або не додадуть нових задач у чергу
+            //Одночасно з тим що ми починаємо очікування, то звільняється монітор lock який потрібно отримати для виробника,
+            // щоб перевірити чи можна додавати нові задачі. (Про метод producerCanAddNewTasks())
         }
         counterOfWorkingThreads++;
         print(threadName + " has woken up");
@@ -122,19 +135,19 @@ public class ThreadPool {
         print(threadName + " has notified the Producer to fill the queue");
     }
 
-    public void terminate() {
+    public void terminate() {//безпечна зупинка з очікуванням завершення активних задач
         print("The termination of thread pool has started");
         synchronized (lock) {
-            if (terminated) {
+            if (isTerminated) {
                 print("The termination of the thread pool has already been completed.");
                 return;
             }
-            terminated = true;
-            lock.notifyAll();//*signal when termination*
+            isTerminated = true;
+            lock.notifyAll();//будимо всі потоки що очікували
         }
         for (Thread worker : workers) {
             try {
-                worker.join();
+                worker.join();//очікуємо завершення потоків
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
@@ -143,10 +156,10 @@ public class ThreadPool {
         print("queue.size(): " + queue.size());
     }
 
-    public void interrupt() {
+    public void interrupt() {//моментальна зупинка без очікування завершення активних задач
         print("The producer has commanded the interruption of the thread pool.☠️");
         synchronized (lock) {
-            terminated = true;
+            isTerminated = true;
         }
         for (Thread thread : workers) {
             thread.interrupt();
@@ -155,9 +168,7 @@ public class ThreadPool {
 
     public boolean producerCanAddNewTasks() {
         synchronized (lock) {
-            print("queue.size(): " + queue.size() +
-                    " counterOfWorkingThreads: " + counterOfWorkingThreads);
-            return initialized && !terminated && (queue.size() < 1) && (counterOfWorkingThreads < 1);
+            return initialized && !isTerminated && (queue.size() < 1) && (counterOfWorkingThreads < 1);
         }
     }
 
@@ -168,18 +179,23 @@ public class ThreadPool {
     public Result getResult() {
         int numberOfRejectedTasks = queue.getNumberOfRejectedTasks();
         float averageNumberOfRejectedTasks = ((float) numberOfRejectedTasks) / executionNumber;
+        int numberOfAcceptedTasks = queue.getNumberOfAcceptedTasks();
+        float averageNumberOfAcceptedTasks = ((float) numberOfAcceptedTasks) / executionNumber;
         return new Result(waitingCounter.averageTimeOfThreadInWaitingState(),
                 queueCounter.maxTimeOfActiveQueue,
                 queueCounter.minTimeOfActiveQueue,
                 numberOfRejectedTasks,
-                averageNumberOfRejectedTasks);
+                averageNumberOfRejectedTasks,
+                numberOfAcceptedTasks,
+                averageNumberOfAcceptedTasks
+        );
     }
 
     private static class QueueTimeCounter {
 
-        private long maxTimeOfActiveQueue = 0;
+        private long maxTimeOfActiveQueue = -1;
 
-        private long minTimeOfActiveQueue = 0;
+        private long minTimeOfActiveQueue = -1;
 
         private long start;
 
@@ -190,7 +206,7 @@ public class ThreadPool {
         private void setFinish() {
             long finish = System.nanoTime();
             long result = finish - start;
-            if (minTimeOfActiveQueue == 0) {
+            if (minTimeOfActiveQueue < 0) {
                 minTimeOfActiveQueue = maxTimeOfActiveQueue = result;
             } else if (maxTimeOfActiveQueue < result) {
                 maxTimeOfActiveQueue = result;

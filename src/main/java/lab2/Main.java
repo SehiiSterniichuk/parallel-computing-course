@@ -5,8 +5,8 @@ import static lab2.Printer.print;
 import static lab2.Producer.getRandomExecutionTime;
 
 public class Main {
-    private static final int NUMBER_OF_LIFECYCLES = 4;
-    private static final int INTERRUPT_CYCLE_ID = -3;
+    private static final int NUMBER_OF_LIFECYCLES = 4;//кількість ітерацій заповнення черги
+    private static final int INTERRUPT_CYCLE_ID = -3;//ітерація на якій відбувається завершення роботи з покиданням активних задач.
 
     public static void main(String[] args) throws InterruptedException {
         System.out.println("Program has started");
@@ -21,11 +21,11 @@ public class Main {
                 threadPool.interrupt();
                 break;
             }
-            if (NUMBER_OF_LIFECYCLES - 1 != i) {
+            if (NUMBER_OF_LIFECYCLES - 1 != i) {//якщо це не остання ітерація чекаємо щоб додати нові задачі у чергу
                 waitThreadPoolToAddNewTasks(threadPool);
             }
         }
-        if (INTERRUPT_CYCLE_ID < 0) {
+        if (INTERRUPT_CYCLE_ID < 0) {//умова при якій ми завершуємо роботу пулу з очікуванням на закінчення початих задач
             sleep(unit.toMillis(getRandomExecutionTime()));
             threadPool.terminate();
         }
@@ -42,7 +42,7 @@ public class Main {
 
     private static void waitThreadPoolToAddNewTasks(ThreadPool threadPool) throws InterruptedException {
         Object waiter = threadPool.getProducerWaiter();
-        while (!threadPool.producerCanAddNewTasks()) {
+        while (!threadPool.producerCanAddNewTasks()) {//чекаємо поки у пулі не стане пуста черга та не завершаться початі задачі
             synchronized (waiter) {
                 waiter.wait();
             }
