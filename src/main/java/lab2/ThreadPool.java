@@ -17,12 +17,12 @@ public class ThreadPool {
 
     private final ThreadWaitingCounter waitingCounter;//лічильник середнього часу очікування потоку
 
-    private final Object lock;//об'єкт синхронізації. Монітор
+    private final Object lock;//Об'єкт синхронізації. Монітор
 
     private boolean isTerminated = false;//прапор що позначає чи пул потоків не завершений(термінований) ще
 
     private int counterOfWorkingThreads = 0;
-    //лічильник не сплячих потоків який потрібний для того щоб Виробник додавав нові задачі тільки коли всі потоки завершили свої задачі та сплять
+    //лічильник не сплячих потоків який потрібний для того, щоб Виробник додавав нові задачі тільки коли всі потоки завершили свої задачі та сплять
 
     private boolean initialized = false;//прапор позначає що пул запустив свої потоки
 
@@ -65,7 +65,7 @@ public class ThreadPool {
             queueCounter.setStart();//починаємо відлік часу заповненої черги
             executionNumber++;
             if (initialized) {
-                lock.notifyAll();//якщо initialized == true отже потоки вже працюють і їх треба всього лише розбудити щоб вони почали працювати
+                lock.notifyAll();//якщо initialized == true тоді потоки вже працюють і їх треба всього лише розбудити, щоб вони почали працювати
                 print("The producer notified the workers to start performing new tasks");
                 return;
             }

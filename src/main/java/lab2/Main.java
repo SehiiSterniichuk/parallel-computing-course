@@ -21,7 +21,7 @@ public class Main {
                 threadPool.interrupt();
                 break;
             }
-            if (NUMBER_OF_LIFECYCLES - 1 != i) {//якщо це не остання ітерація чекаємо щоб додати нові задачі у чергу
+            if (NUMBER_OF_LIFECYCLES - 1 != i) {//якщо це не остання ітерація, то чекаємо, щоб додати нові задачі у чергу
                 waitThreadPoolToAddNewTasks(threadPool);
             }
         }
