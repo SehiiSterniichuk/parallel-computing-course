@@ -3,7 +3,6 @@ package lab2;
 import java.util.Random;
 
 import static lab2.Constants.*;
-import static lab2.Printer.print;
 
 public class Producer {
 
@@ -21,7 +20,7 @@ public class Producer {
 
 
     public void work() {
-        print("The queue has started to fill");
+        System.out.println("The queue has started to fill");
         isWorking = true;
         while (isWorking) {
             Task newTask = generateTask();

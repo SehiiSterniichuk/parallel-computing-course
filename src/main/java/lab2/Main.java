@@ -1,12 +1,11 @@
 package lab2;
 
 import static lab2.Constants.*;
-import static lab2.Printer.print;
 import static lab2.Producer.getRandomExecutionTime;
 
 public class Main {
     private static final int NUMBER_OF_LIFECYCLES = 4;//кількість ітерацій заповнення черги
-    private static final int INTERRUPT_CYCLE_ID = -3;//ітерація на якій відбувається завершення роботи з покиданням активних задач.
+    private static final int INTERRUPT_CYCLE_ID = 3;//ітерація на якій відбувається завершення роботи з покиданням активних задач.
 
     public static void main(String[] args) throws InterruptedException {
         System.out.println("Program has started");
@@ -14,7 +13,7 @@ public class Main {
         Producer producer = new Producer(threadPool);
         for (int i = 0; i < NUMBER_OF_LIFECYCLES; i++) {
             fillQueueInNewThread(producer);
-            print("The queue has finished to fill");
+            System.out.println("The queue has finished to fill");
             threadPool.execute();
             if (INTERRUPT_CYCLE_ID == i) {
                 sleep(unit.toMillis(getRandomExecutionTime()));
@@ -29,7 +28,7 @@ public class Main {
             sleep(unit.toMillis(getRandomExecutionTime()));
             threadPool.terminate();
         }
-        print(threadPool.getResult().toString());
+        System.out.println(threadPool.getResult().toString());
     }
 
     private static void fillQueueInNewThread(Producer producer) throws InterruptedException {
@@ -47,7 +46,7 @@ public class Main {
                 waiter.wait();
             }
         }
-        print("Producer can add new tasks");
+        System.out.println("Producer can add new tasks");
     }
 
     static void sleep(long sleepTime) {

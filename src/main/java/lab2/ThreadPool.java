@@ -3,7 +3,6 @@ package lab2;
 import java.util.ArrayList;
 import java.util.List;
 
-import static lab2.Printer.print;
 
 public class ThreadPool {
 
@@ -49,12 +48,12 @@ public class ThreadPool {
         synchronized (lock) {
             if (isTerminated || counterOfWorkingThreads >= 1) {
                 //counterOfWorkingThreads >= 1 означає що лишився хоча б 1 потік який ще працює над своєю задачею
-                print("The thread pool rejected the task: " + task);
+                System.out.println("The thread pool rejected the task: " + task);
                 return;
             }
             if (!queue.add(task)) return;//якщо черга вертає false отже задача не поміщається в ліміт
         }
-        print("Producer has added task: " + task);//вивід на екран успішно доданих задач
+        System.out.println("Producer has added task: " + task);//вивід на екран успішно доданих задач
     }
 
     public void execute() {
@@ -66,13 +65,13 @@ public class ThreadPool {
             executionNumber++;
             if (initialized) {
                 lock.notifyAll();//якщо initialized == true тоді потоки вже працюють і їх треба всього лише розбудити, щоб вони почали працювати
-                print("The producer notified the workers to start performing new tasks");
+                System.out.println("The producer notified the workers to start performing new tasks");
                 return;
             }
             counterOfWorkingThreads = workers.size();
             initialized = true;
         }
-        print("The threadPool has started threads");
+        System.out.println("The threadPool has started threads");
         workers.forEach(Thread::start);
     }
 
@@ -95,12 +94,12 @@ public class ThreadPool {
                         }
                     }
                     if (isTerminated) {
-                        print(threadName + " is terminated");
+                        System.out.println(threadName + " is terminated");
                         return;
                     }
                     task = queue.poll();
                 } catch (InterruptedException e) {
-                    print(threadName + " was interrupted while waiting for a new task");
+                    System.out.println(threadName + " was interrupted while waiting for a new task");
                     return;
                 }
             }
@@ -108,7 +107,7 @@ public class ThreadPool {
                 task.run();
             } catch (InterruptedException e) {
                 //Роботу пулу треба моментально зупинити без очікування на завершення поточних завдань
-                print(threadName + " was interrupted doing task: " + task.id());
+                System.out.println(threadName + " was interrupted doing task: " + task.id());
                 return;
             }
         }
@@ -118,28 +117,28 @@ public class ThreadPool {
         counterOfWorkingThreads--;
         if (counterOfWorkingThreads < 1) notifyProducer(threadName);
         // якщо counterOfWorkingThreads < 1 тоді це останній робочий потік, отже потрібно починати заповнення черги
-        print(threadName + " is waiting for a new task👉👈");
+        System.out.println(threadName + " is waiting for a new task👉👈");
         while (!isTerminated && queue.isEmpty()) {
             lock.wait();//чекаємо поки робота пулу не завершиться або не додадуть нових задач у чергу
             //Одночасно з тим що ми починаємо очікування, то звільняється монітор lock який потрібно отримати для виробника,
             // щоб перевірити чи можна додавати нові задачі. (Про метод producerCanAddNewTasks())
         }
         counterOfWorkingThreads++;
-        print(threadName + " has woken up");
+        System.out.println(threadName + " has woken up");
     }
 
     private void notifyProducer(String threadName) {
         synchronized (producerWaiter) {
             producerWaiter.notify();
         }
-        print(threadName + " has notified the Producer to fill the queue");
+        System.out.println(threadName + " has notified the Producer to fill the queue");
     }
 
     public void terminate() {//безпечна зупинка з очікуванням завершення активних задач
-        print("The termination of thread pool has started");
+        System.out.println("The termination of thread pool has started");
         synchronized (lock) {
             if (isTerminated) {
-                print("The termination of the thread pool has already been completed.");
+                System.out.println("The termination of the thread pool has already been completed.");
                 return;
             }
             isTerminated = true;
@@ -152,12 +151,12 @@ public class ThreadPool {
                 throw new RuntimeException(e);
             }
         }
-        print("The termination of thread pool has finished");
-        print("queue.size(): " + queue.size());
+        System.out.println("The termination of thread pool has finished");
+        System.out.println("queue.size(): " + queue.size());
     }
 
     public void interrupt() {//моментальна зупинка без очікування завершення активних задач
-        print("The producer has commanded the interruption of the thread pool.☠️");
+        System.out.println("The producer has commanded the interruption of the thread pool.☠️");
         synchronized (lock) {
             isTerminated = true;
         }
