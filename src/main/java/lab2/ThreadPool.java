@@ -106,9 +106,9 @@ public class ThreadPool {
             }
             try {
                 task.run();
-            } catch (RuntimeInterruptedException e) {
-                //Роботу пулу треба моментально зупинити без очікування на завершення поточних завдань. Тому було отримано RuntimeInterruptedException
-                print(e.getMessage());
+            } catch (InterruptedException e) {
+                //Роботу пулу треба моментально зупинити без очікування на завершення поточних завдань
+                print(threadName + " was interrupted doing task: " + task.id());
                 return;
             }
         }
