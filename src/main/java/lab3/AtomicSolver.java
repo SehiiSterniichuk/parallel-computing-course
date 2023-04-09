@@ -41,7 +41,12 @@ public class AtomicSolver {
             if (value % 2 == 0) {
                 diff.getAndAdd(-value);
                 if (localMax < value) {
-                    localMax = max.updateAndGet(currentMax -> Math.max(currentMax, value));
+                    int oldMax;
+                    do {
+                        oldMax = max.get();
+                        localMax = Math.max(oldMax, value);
+                    } while (!max.compareAndSet(oldMax, localMax));
+//                    localMax = max.updateAndGet(currentMax -> Math.max(currentMax, value));
                 }
             }
         }

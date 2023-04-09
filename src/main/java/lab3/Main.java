@@ -97,5 +97,4 @@ public class Main {
             return unit.convert(res, TimeUnit.NANOSECONDS);
         }
     }
-
 }
