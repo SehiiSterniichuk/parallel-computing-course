@@ -3,7 +3,6 @@ package lab1;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 
 public class Main {
 
@@ -41,21 +40,33 @@ public class Main {
     }
 
     public static void work(final int size) {
-        if (size % 2 != 0) {
-            throw new IllegalArgumentException("Matrix dimension must be even for ability to swap all rows");
-        }
         Matrix matrix = new Matrix(size);
-        threadNumbers.forEach(threadNumber -> {
-            if (threadNumber <= 1) {
-                executeSingleThread(matrix);
-                return;
-            } else if (size <= threadNumber) {
-                String message = "Number of threads can't be less than dimension of matrix. Dimension: "
-                        + size + " threads: " + threadNumber;
-                throw new IllegalArgumentException(message);
-            }
-            executeParallel(matrix, threadNumber);
-        });
+        threadNumbers.forEach(threadNumber -> solve(matrix, threadNumber));
+    }
+
+    public static long solve(Matrix matrix, int threadNumber) {
+        int size = matrix.size;
+        if (!isGoodParameters(size, threadNumber)) {
+            return -1;
+        }
+        if (threadNumber <= 1) {
+            return executeSingleThread(matrix);
+        }
+        return executeParallel(matrix, threadNumber);
+    }
+
+    public static boolean isGoodParameters(int size, int threadNumber) {
+        if (size % 2 != 0) {
+            System.err.println("Matrix dimension must be even for ability to swap all rows");
+            return false;
+        }
+        if (size <= threadNumber) {
+            String message = "Number of threads can't be less than dimension of matrix. Dimension: "
+                    + size + " threads: " + threadNumber;
+            System.err.println(message);
+            return false;
+        }
+        return true;
     }
 
     private static void sleep() {
@@ -66,15 +77,17 @@ public class Main {
         }
     }
 
-    private static void executeSingleThread(Matrix matrix) {
-        timeCounter(() -> {
+    private static long executeSingleThread(Matrix matrix) {
+        var timeCounter = timeCounter(() -> {
             for (int i = 0; i < matrix.size; i += 2) {
                 matrix.swapRows(i, i + 1);
             }
-        }, t -> printResult(matrix, 1, t));
+        });
+        printResult(matrix, 1, timeCounter);
+        return timeCounter;
     }
 
-    private static void executeParallel(Matrix matrix, int threadNumber) {
+    private static long executeParallel(Matrix matrix, int threadNumber) {
         final int size = matrix.size;
         if (size % threadNumber != 0) {
             throw new IllegalArgumentException("size divided by threadNumber should be integer.\n size = " + size + " threadNumber = " + threadNumber);
@@ -91,10 +104,12 @@ public class Main {
             });
             threads.add(thread);
         }
-        timeCounter(() -> {
+        var timeCounter = timeCounter(() -> {
             threads.forEach(Thread::start);
             joinAll(threads);
-        }, t -> printResult(matrix, threadNumber, t));
+        });
+        printResult(matrix, threadNumber, timeCounter);
+        return timeCounter;
     }
 
     private static void printResult(Matrix matrix, int threadNumber, long time) {
@@ -112,10 +127,10 @@ public class Main {
         }
     }
 
-    public static void timeCounter(Runnable runnable, Consumer<Long> timeConsumer) {
+    public static long timeCounter(Runnable runnable) {
         long start = System.nanoTime();
         runnable.run();
         long finish = System.nanoTime();
-        timeConsumer.accept((finish - start) / 1000);
+        return (finish - start) / 1000;
     }
 }
