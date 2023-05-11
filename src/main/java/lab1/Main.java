@@ -46,27 +46,22 @@ public class Main {
 
     public static long solve(Matrix matrix, int threadNumber) {
         int size = matrix.size;
-        if (!isGoodParameters(size, threadNumber)) {
-            return -1;
-        }
+        checkParameters(size, threadNumber);
         if (threadNumber <= 1) {
             return executeSingleThread(matrix);
         }
         return executeParallel(matrix, threadNumber);
     }
 
-    public static boolean isGoodParameters(int size, int threadNumber) {
+    public static void checkParameters(int size, int threadNumber) {
         if (size % 2 != 0) {
-            System.err.println("Matrix dimension must be even for ability to swap all rows");
-            return false;
+            throw new IllegalArgumentException("Matrix dimension must be even for ability to swap all rows");
         }
         if (size <= threadNumber) {
             String message = "Number of threads can't be less than dimension of matrix. Dimension: "
                     + size + " threads: " + threadNumber;
-            System.err.println(message);
-            return false;
+            throw new IllegalArgumentException(message);
         }
-        return true;
     }
 
     private static void sleep() {

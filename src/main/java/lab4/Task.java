@@ -5,9 +5,7 @@ import lab1.Matrix;
 public class Task implements Runnable {
     private final Matrix matrix;
     private final long id;
-
     private volatile Status status = Status.WAITING;
-
     private long timeOfExecution;
 
     private final int numberOfThreads;
