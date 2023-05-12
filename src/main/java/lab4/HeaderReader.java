@@ -6,10 +6,10 @@ import lab4.header.parameters.TaskId;
 import java.io.BufferedReader;
 import java.io.IOException;
 
+import static lab4.header.parameters.Prefix.*;
+
 public interface HeaderReader {
-    String sizePrefix = "size: ";
-    String numberOfThreadsPrefix = "number-of-threads: ";
-    String idPrefix = "id: ";
+
 
     static Header readHeader(BufferedReader in) throws IOException {
         String input = in.readLine();
@@ -18,35 +18,41 @@ public interface HeaderReader {
         int numberOfThreads = -1;
         long id = -1;
         while (RequestType.BAD_REQUEST != type && (input = in.readLine()) != null) {
-            if (input.startsWith(sizePrefix)) {
-                size = parseInteger(sizePrefix, input);
+            if (input.startsWith(SIZE.v)) {
+                size = parseInteger(SIZE.v, input);
                 continue;
             }
-            if (input.startsWith(numberOfThreadsPrefix)) {
-                numberOfThreads = parseInteger(numberOfThreadsPrefix, input);
+            if (input.startsWith(THREADS.v)) {
+                numberOfThreads = parseInteger(THREADS.v, input);
                 continue;
             }
-            if (input.startsWith(idPrefix)) {
-                id = parseInteger(idPrefix, input);
+            if (input.startsWith(ID.v)) {
+                id = parseInteger(ID.v, input);
                 continue;
             }
             if (input.isEmpty()) break;
             System.out.println("Unexpected parameters: " + input);
         }
         return switch (type) {
-            case GET_RESULT, GET_TASK_STATUS -> getHeaderWithTaskId(type, id);
-            case POST_NEW_TASK -> getHeaderWithNewTaskParams(type, size, numberOfThreads);
+            case GET_RESULT, GET_TASK_STATUS, START_TASK -> getHeaderWithTaskId(type, id);
+            case POST_NEW_TASK -> getHeaderWithNewTaskParams(size, numberOfThreads);
             case BAD_REQUEST -> new Header(type, null);
         };
     }
 
-    static Header getHeaderWithNewTaskParams(RequestType type, int size, int numberOfThreads) {
-        lab1.Main.checkParameters(size, numberOfThreads);
-        return new Header(type, new NewTaskParameter(size, numberOfThreads));
+    static Header getHeaderWithNewTaskParams(int size, int numberOfThreads) {
+        try {
+            lab1.Main.checkParameters(size, numberOfThreads);
+        } catch (IllegalArgumentException e) {
+            return new Header(RequestType.BAD_REQUEST, null);
+        }
+        return new Header(RequestType.POST_NEW_TASK, new NewTaskParameter(size, numberOfThreads));
     }
 
     static Header getHeaderWithTaskId(RequestType type, long id) {
-        if (id < 0) throw new IllegalArgumentException("id is less than zero");
+        if (id < 0) {
+            return new Header(type, null);
+        }
         return new Header(type, new TaskId(id));
     }
 

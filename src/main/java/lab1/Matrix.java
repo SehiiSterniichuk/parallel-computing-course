@@ -16,6 +16,11 @@ public class Matrix {
         randomInit(data);
     }
 
+    public Matrix(double[][] data) {
+        this.size = data.length;
+        this.data = data;
+    }
+
     private static void randomInit(double[][] data) {
         for (double[] array : data) {
             for (int j = 0; j < array.length; j++) {
@@ -26,16 +31,19 @@ public class Matrix {
 
     public void swapRows(int row1, int row2) {
         for (int i = 0; i < size; ++i) {
-            double temp = data[row1][i];
-            data[row1][i] = data[row2][i];
-            data[row2][i] = temp;
+//            double temp = data[row1][i];
+//            data[row1][i] = data[row2][i];
+//            data[row2][i] = temp;
+            var temp = data[row1];
+            data[row1] = data[row2];
+            data[row2] = temp;
         }
-//        var temp = data[row1];
-//        data[row1] = data[row2];
-//        data[row2] = temp;
+
     }
 
+    @SuppressWarnings("unused")
     public void print() {
+        int size = Math.min(this.size, 4);
         for (int i = 0; i < size; i++) {
             for (int j = 0; j < size; j++) {
                 System.out.printf("%3.2f\t", data[i][j]);

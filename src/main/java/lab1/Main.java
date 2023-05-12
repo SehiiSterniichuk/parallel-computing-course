@@ -62,6 +62,12 @@ public class Main {
                     + size + " threads: " + threadNumber;
             throw new IllegalArgumentException(message);
         }
+        if (size % threadNumber != 0) {
+            throw new IllegalArgumentException("size % threadNumber != 0");
+        }
+        if ((size / threadNumber) % 2 != 0) {
+            throw new IllegalArgumentException("(size / threadNumber) % 2 != 0");
+        }
     }
 
     private static void sleep() {
@@ -107,8 +113,9 @@ public class Main {
         return timeCounter;
     }
 
+    @SuppressWarnings("unused")
     private static void printResult(Matrix matrix, int threadNumber, long time) {
-        System.out.printf("Matrix dimension: %d, number of threads: %d, time: %d\n", matrix.size, threadNumber, time);
+//        System.out.printf("Matrix dimension: %d, number of threads: %d, time: %d\n", matrix.size, threadNumber, time);
 //        System.out.printf("%d,%d,%d\n", matrix.size, threadNumber, time);
     }
 
