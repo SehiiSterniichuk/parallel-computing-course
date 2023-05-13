@@ -31,13 +31,13 @@ public class Matrix {
 
     public void swapRows(int row1, int row2) {
         for (int i = 0; i < size; ++i) {
-//            double temp = data[row1][i];
-//            data[row1][i] = data[row2][i];
-//            data[row2][i] = temp;
-            var temp = data[row1];
-            data[row1] = data[row2];
-            data[row2] = temp;
+            double temp = data[row1][i];
+            data[row1][i] = data[row2][i];
+            data[row2][i] = temp;
         }
+//            var temp = data[row1];
+//            data[row1] = data[row2];
+//            data[row2] = temp;
 
     }
 

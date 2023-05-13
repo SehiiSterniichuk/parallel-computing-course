@@ -6,9 +6,14 @@ public interface MatrixLoader {
 
     static void write(DataOutputStream out, double[][] data, String client) throws IOException {
         long start = System.nanoTime();
-        for (double[] row : data) {
-            for (int j = 0; j < row.length; j++) {
-                out.writeDouble(row[j]);
+        int size = data.length;
+        for (int i = 0; i < size; i++) {
+            double[] row = data[i];
+            for (double v : row) {
+                out.writeDouble(v);
+            }
+            if (size >= 2000 && i % 1000 == 0) {
+                System.out.printf("Writing matrix of the size: %d, row: %d\n", size, i);
             }
         }
         long finish = (System.nanoTime() - start) / 1000;
@@ -23,7 +28,9 @@ public interface MatrixLoader {
             for (int j = 0; j < size; j++) {
                 double v = in.readDouble();
                 doubleRow[j] = v;
-//                System.out.println(v);
+            }
+            if (size >= 2000 && i % 1000 == 0) {
+                System.out.printf("Reading matrix of the size: %d, row: %d\n", size, i);
             }
             array[i] = doubleRow;
         }

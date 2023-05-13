@@ -7,5 +7,7 @@ public enum RequestType {
     GET_TASK_STATUS,
     GET_RESULT,
 
+    SHUTDOWN,
+
     BAD_REQUEST
 }

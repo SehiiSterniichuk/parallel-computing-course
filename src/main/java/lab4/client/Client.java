@@ -11,9 +11,6 @@ import java.io.*;
 import java.net.Socket;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
-import java.util.function.Supplier;
-
-import static java.lang.Math.min;
 
 public class Client implements Runnable {
     private final String host;
@@ -54,10 +51,20 @@ public class Client implements Runnable {
 
     @Override
     public void run() {
-        Matrix matrix = new Matrix(size);
-        String hello = String.format("Client %d created matrix of the size: %d \n", id, size);
-        printMatrix(hello, matrix);
-        taskId = postTask(matrix);
+        try {
+            work();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void work() {
+        if (size < 1) {
+            System.out.println("Killer client has been called");
+            request((in, out) -> shutdownServer(out));
+            return;
+        }
+        taskId = postTask();
         if (taskId < 0) {
             System.err.printf("Server doesn't accept matrix. size: %d, threads: %d", size, threadNumber);
             return;
@@ -69,20 +76,38 @@ public class Client implements Runnable {
             return;
         }
         System.out.println("Successful start. " + this);
-        int min = min(size, threadNumber);
-        sleep(min);
-        Supplier<Status> getStatus = () -> request((in, out) -> getStatus(taskId, in, out));
-        Status status = getStatus.get();
-        for (int i = 0; status != Status.DONE && i < 3; ++i) {
+        sleep(1);
+        Result result;
+        int i = 0;
+        do {
+            result = getStatusOrResult(taskId, size);
             System.out.println("Result is not ready yet." + this);
-            sleep(min);
-            status = getStatus.get();
-        }
-        if (status != Status.DONE) {
+            sleep(1);
+            i++;
+        } while (result == null && i < 2);
+        Matrix resultMatrix;
+        if (result == null) {
             System.out.println("The result is not ready, but the client asks for it " + this);
+            resultMatrix = requestResult(taskId, size).matrix;
+        } else {
+            resultMatrix = result.matrix;
         }
-        Matrix result = getResult(id, size).matrix;
-        printMatrix("Result received. " + this, result);
+        printMatrix("\nResult received. " + this, resultMatrix);
+    }
+
+    private long postTask() {
+        Matrix matrix = new Matrix(size);
+        String hello = String.format("Client %d created matrix of the size: %d \n", id, size);
+        printMatrix(hello, matrix);
+        try (Socket socket = new Socket(host, port);
+             var dOut = new DataOutputStream(socket.getOutputStream());
+             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))
+        ) {
+            return writeTask(matrix, in, out, dOut);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static void sleep(long time) {
@@ -107,25 +132,50 @@ public class Client implements Runnable {
     record Result(Matrix matrix, long executionTime) {
     }
 
-    private Result getResult(long id, int size) {
+    private Result requestResult(long taskId, int size) {
         try (Socket socket = new Socket(host, port);
              var dIn = new DataInputStream(socket.getInputStream());
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
              BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))
         ) {
-            return readResult(id, size, in, out, dIn);
+            out.println(RequestType.GET_RESULT);
+            out.println(Prefix.ID.v + taskId);
+            out.println("\r\n");
+            return readResult(size, in, dIn);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private long postTask(Matrix matrix) {
+    private Result getStatusOrResult(long id, int size) {
         try (Socket socket = new Socket(host, port);
-             var dOut = new DataOutputStream(socket.getOutputStream());
+             var dIn = new DataInputStream(socket.getInputStream());
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
              BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))
         ) {
-            return writeTask(matrix, in, out, dOut);
+            Status status = getStatus(id, in, out);
+            return switch (status) {
+                case WAITING, RUNNING -> null;
+                case DONE -> readResult(size, in, dIn);
+            };
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private Result readResult(int size, BufferedReader in, DataInputStream dIn) {
+        try {
+            String line = in.readLine();
+            ResponseType responseType = ResponseType.valueOf(line);
+            return switch (responseType) {
+                case BAD_REQUEST -> printBadRequestAndThrow(in, new IllegalStateException());
+                case OK -> {
+                    long executionTime = parseLong(in, Prefix.TIME);
+                    System.out.println("Downloading the result: " + this + " executionTime: " + executionTime);
+                    Matrix matrix = new Matrix(MatrixLoader.read(dIn, size, toString()));
+                    yield new Result(matrix, executionTime);
+                }
+            };
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -140,6 +190,13 @@ public class Client implements Runnable {
         }
         return ResponseType.valueOf(line);
     }
+
+    private Void shutdownServer(PrintWriter out) {
+        out.println(RequestType.SHUTDOWN);
+        out.println();
+        return null;
+    }
+
 
     private long writeTask(Matrix matrix, BufferedReader in, PrintWriter out, DataOutputStream dOut) throws IOException {
         out.println(RequestType.POST_NEW_TASK);
@@ -162,7 +219,8 @@ public class Client implements Runnable {
     private long parseLong(BufferedReader in, Prefix p) {
         String substring;
         try {
-            substring = in.readLine().substring(p.v.length());
+            String readLine = in.readLine();
+            substring = readLine.substring(p.v.length());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -202,24 +260,5 @@ public class Client implements Runnable {
         throw e;
     }
 
-    private Result readResult(long id, int size, BufferedReader in, PrintWriter out, DataInputStream dIn) {
-        out.println(RequestType.GET_RESULT);
-        out.println(Prefix.ID.v + id);
-        out.println("\r\n");
-        try {
-            String line = in.readLine();
-            ResponseType responseType = ResponseType.valueOf(line);
-            return switch (responseType) {
-                case BAD_REQUEST -> printBadRequestAndThrow(in, new IllegalStateException());
-                case OK -> {
-                    long executionTime = parseLong(in, Prefix.TIME);
-                    System.out.println(this + " executionTime: " + executionTime);
-                    Matrix matrix = new Matrix(MatrixLoader.read(dIn, size, toString()));
-                    yield new Result(matrix, executionTime);
-                }
-            };
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
+
 }

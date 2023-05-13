@@ -38,7 +38,7 @@ public interface HeaderReader {
         return switch (type) {
             case GET_RESULT, GET_TASK_STATUS, START_TASK -> getHeaderWithTaskId(type, id);
             case POST_NEW_TASK -> getHeaderWithNewTaskParams(size, numberOfThreads);
-            case BAD_REQUEST -> new Header(type, null);
+            case BAD_REQUEST, SHUTDOWN -> new Header(type, null);
         };
     }
 

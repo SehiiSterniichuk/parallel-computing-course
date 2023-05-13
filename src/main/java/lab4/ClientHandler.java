@@ -1,6 +1,7 @@
 package lab4;
 
 import lab1.Matrix;
+import lab4.model.ResponseType;
 import lab4.model.header.HeaderParametersHolder;
 import lab4.model.header.NewTaskParameter;
 import lab4.model.header.Prefix;
@@ -24,15 +25,17 @@ public class ClientHandler implements Runnable {
     private static final int WAIT_RESULT_TIME = 15;
     private static final TimeUnit WAIT_RESULT_UNITS = TimeUnit.MINUTES;
     private final Socket clientSocket;
-    private final ExecutorService executor;
+    private final ExecutorService taskExecutor;
     private final ConcurrentHashMap<Long, Task> map;
+    private final Runnable shutdownCallback;
     private static long handlerCounter = 0;
     private final long handlerId;
 
-    public ClientHandler(Socket clientSocket, ExecutorService executor, ConcurrentHashMap<Long, Task> map) {
+    public ClientHandler(Socket clientSocket, ExecutorService taskExecutor, ConcurrentHashMap<Long, Task> map, Runnable shutdownCallback) {
         this.clientSocket = clientSocket;
-        this.executor = executor;
+        this.taskExecutor = taskExecutor;
         this.map = map;
+        this.shutdownCallback = shutdownCallback;
         this.handlerId = (handlerCounter++) % Long.MAX_VALUE;
     }
 
@@ -41,21 +44,24 @@ public class ClientHandler implements Runnable {
     public void run() {
         try (var in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
              var out = new PrintWriter(clientSocket.getOutputStream(), true);
-             var socketWrapper = new SocketWrapper(clientSocket)
+             var socketWrapper = new SocketWrapper(clientSocket);
+             var dOut = new DataOutputStream(clientSocket.getOutputStream());
+             var inD = new DataInputStream(clientSocket.getInputStream())
         ) {
             socketWrapper.clientSocket.setSoTimeout(TIMEOUT);
             System.out.println("\nClient has connected to handler: " + handlerId);
             Header header = readHeader(in);
             System.out.println(header);
             switch (header.type()) {
-                case POST_NEW_TASK -> addNewTask(out, header.parameters());
+                case POST_NEW_TASK -> addNewTask(out, header.parameters(), inD);
                 case START_TASK -> startTask(out, header.parameters());
-                case GET_RESULT -> getTaskResult(out, header.parameters());
-                case GET_TASK_STATUS -> getTaskStatus(out, header.parameters());
+                case GET_TASK_STATUS -> getTaskStatus(out, header.parameters(), dOut);
+                case GET_RESULT -> getTaskResult(out, header.parameters(), dOut);
                 case BAD_REQUEST -> printlnBadRequest(out, "Undefined command");
+                case SHUTDOWN -> shutdownCallback.run();
             }
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            e.printStackTrace();
         }
     }
 
@@ -76,7 +82,7 @@ public class ClientHandler implements Runnable {
                 printfBadRequest(out, "Task %d not found or not started", id);
                 return;
             }
-            Future<Void> submit = executor.submit(() -> {
+            Future<Void> submit = taskExecutor.submit(() -> {
                 task.run();
                 return null;
             });
@@ -86,14 +92,12 @@ public class ClientHandler implements Runnable {
         printlnBadRequest(out, "!(parameters instanceof TaskId(var id))");
     }
 
-    private void addNewTask(PrintWriter out, HeaderParametersHolder parameters) throws IOException {
+    private void addNewTask(PrintWriter out, HeaderParametersHolder parameters, DataInputStream in) throws IOException {
         if (parameters instanceof NewTaskParameter(int size, int numberOfThreads)) {
             out.println(OK);
             System.out.println("Started reading matrix of the size: " + size);
             double[][] array;
-            try (var in = new DataInputStream(clientSocket.getInputStream())) {
-                array = MatrixLoader.read(in, size, "Matrix of the size: " + size);
-            }
+            array = MatrixLoader.read(in, size, "Matrix of the size: " + size);
             System.out.println("Finished reading matrix of the size: " + size);
             long id = getNextId();
             Task newTask = new Task(new Matrix(array), id, numberOfThreads);
@@ -109,25 +113,30 @@ public class ClientHandler implements Runnable {
         return taskCounter.getAndIncrement();
     }
 
-    private void getTaskStatus(PrintWriter out, HeaderParametersHolder parameters) {
+    private void getTaskStatus(PrintWriter out, HeaderParametersHolder parameters, DataOutputStream dOut) throws IOException {
         if (parameters instanceof TaskId(var id)) {
             Task task = getTask(out, id);
             if (task == null) {
                 printfBadRequest(out, "Task %d not found", id);
                 return;
             }
-            out.println(task.getStatus());
+            Status status = task.getStatus();
+            out.println(status);
+            if(status == Status.DONE){
+                out.println(OK);
+                getCompletedTaskResult(out, task, dOut);
+            }
         }
     }
 
-    private void getTaskResult(PrintWriter out, HeaderParametersHolder parameters) throws IOException {
+    private void getTaskResult(PrintWriter out, HeaderParametersHolder parameters, DataOutputStream dOut) throws IOException {
         if (parameters instanceof TaskId(var id)) {
             Task task = getTask(out, id);
             if (task == null) return;
             Status status = task.getStatus();
             switch (status) {
-                case DONE -> getCompletedTaskResult(out, task);
-                case RUNNING -> waitAndGetTaskResult(out, task);
+                case DONE -> getCompletedTaskResult(out, task, dOut);
+                case RUNNING -> waitAndGetTaskResult(out, task, dOut);
                 case WAITING -> printfBadRequest(out, "Task %d has not yet been started to get it", id);
             }
             if (status == Status.DONE) map.remove(id);
@@ -138,7 +147,7 @@ public class ClientHandler implements Runnable {
         System.err.println(message);
     }
 
-    private void waitAndGetTaskResult(PrintWriter out, Task task) throws IOException {
+    private void waitAndGetTaskResult(PrintWriter out, Task task, DataOutputStream dOut) throws IOException {
         Task.Result result;
         System.out.println("Started async wait for: " + task);
         long start = System.nanoTime();
@@ -154,25 +163,23 @@ public class ClientHandler implements Runnable {
         }
         long time = (System.nanoTime() - start) / 1000;
         System.out.println("Finished async wait for: " + task + " waiting time: " + time);
-        sendResult(out, task.toString(), result);
+        sendResult(out, task.toString(), result, dOut);
     }
 
-    private void getCompletedTaskResult(PrintWriter out, Task task) throws IOException {
+    private void getCompletedTaskResult(PrintWriter out, Task task, DataOutputStream dOut) throws IOException {
         Task.Result result;
         try {
             result = task.getResult();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        sendResult(out, task.toString(), result);
+        sendResult(out, task.toString(), result, dOut);
     }
 
-    private void sendResult(PrintWriter out, String task, Task.Result result) throws IOException {
+    private void sendResult(PrintWriter out, String task, Task.Result result, DataOutputStream dOut) throws IOException {
         out.println(Prefix.TIME.v + result.timeOfExecution());
         System.out.println("Downloading the result of the task: " + task + " has started");
-        try (DataOutputStream dOut = new DataOutputStream(clientSocket.getOutputStream())) {
-            MatrixLoader.write(dOut, result.data(), task);
-        }
+        MatrixLoader.write(dOut, result.data(), task);
         out.println("\r\n");
         System.out.println("Downloading the result of the task: " + task + " has finished");
     }
