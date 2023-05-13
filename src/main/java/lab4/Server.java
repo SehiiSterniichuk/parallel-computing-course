@@ -1,5 +1,7 @@
 package lab4;
 
+import lab4.model.Task;
+
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.SocketException;
@@ -9,12 +11,10 @@ import java.util.concurrent.*;
 public class Server {
     private final ServerSocket serverSocket;
     private volatile boolean isWorking = true;
-
     private final ConcurrentHashMap<Long, Task> map;
-
     private final ExecutorService executor;
 
-    static final long TIME_TO_WORK = TimeUnit.SECONDS.toMillis(60);
+    static final long TIME_TO_WORK = TimeUnit.MINUTES.toMillis(3);
     static final int TIMEOUT = (int) (TIME_TO_WORK);
 
     public Server(ServerSocket serverSocket) throws SocketException {

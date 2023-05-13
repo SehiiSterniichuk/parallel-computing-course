@@ -1,40 +1,34 @@
 package lab4;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.PrintWriter;
+import java.io.*;
 
 public interface MatrixLoader {
 
-    static void write(PrintWriter out, double[][] data) {
+    static void write(DataOutputStream out, double[][] data, String client) throws IOException {
         long start = System.nanoTime();
         for (double[] row : data) {
             for (int j = 0; j < row.length; j++) {
-                out.print(row[j]);
-                if (j < row.length - 1) {
-                    out.print(",");
-                }
+                out.writeDouble(row[j]);
             }
-            out.println();
         }
         long finish = (System.nanoTime() - start) / 1000;
-        System.out.println("Time to write: " + finish);
+        System.out.println("Time to write: " + finish + " " + client);
     }
 
-    static double[][] read(BufferedReader in, int size) throws IOException {
+    static double[][] read(DataInputStream in, int size, String client) throws IOException {
         double[][] array = new double[size][];
         long start = System.nanoTime();
         for (int i = 0; i < size; i++) {
-            String[] row = in.readLine().split(",");
             double[] doubleRow = new double[size];
-            for (int j = 0; j < row.length; j++) {
-                String value = row[j];
-                doubleRow[j] = Double.parseDouble(value);
+            for (int j = 0; j < size; j++) {
+                double v = in.readDouble();
+                doubleRow[j] = v;
+//                System.out.println(v);
             }
             array[i] = doubleRow;
         }
         long finish = (System.nanoTime() - start) / 1000;
-        System.out.println("Time to read: " + finish);
+        System.out.println("Time to read: " + finish + " " + client);
         return array;
     }
 }

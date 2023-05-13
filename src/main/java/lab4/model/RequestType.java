@@ -1,4 +1,4 @@
-package lab4;
+package lab4.model;
 
 public enum RequestType {
     POST_NEW_TASK,

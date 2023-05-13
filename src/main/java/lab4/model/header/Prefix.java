@@ -1,7 +1,7 @@
-package lab4.header.parameters;
+package lab4.model.header;
 
 public enum Prefix {
-    SIZE("size: "), THREADS("number-of-threads: "), ID("id: ");
+    SIZE("size: "), THREADS("number-of-threads: "), ID("id: "), ERROR("error: "), TIME("execution-time: ");
     public final String v;
 
     Prefix(String v) {
