@@ -57,7 +57,7 @@ public class Client implements Runnable {
         Matrix matrix = new Matrix(size);
         String hello = String.format("Client %d created matrix of the size: %d \n", id, size);
         printMatrix(hello, matrix);
-        taskId = postTask(matrix);
+        taskId = request((in, out) -> postNewTask(matrix, in, out));
         if (taskId < 0) {
             System.err.printf("Server doesn't accept matrix. size: %d, threads: %d", size, threadNumber);
             return;
@@ -81,8 +81,10 @@ public class Client implements Runnable {
         if (status != Status.DONE) {
             System.out.println("The result is not ready, but the client asks for it " + this);
         }
-        Matrix result = getResult(id, size).matrix;
+        Matrix result = request((in, out) -> getResult(taskId, size, in, out).matrix);
+        System.out.println("end2");
         printMatrix("Result received. " + this, result);
+        System.out.println("end");
     }
 
     private static void sleep(long time) {
@@ -107,30 +109,6 @@ public class Client implements Runnable {
     record Result(Matrix matrix, long executionTime) {
     }
 
-    private Result getResult(long id, int size) {
-        try (Socket socket = new Socket(host, port);
-             var dIn = new DataInputStream(socket.getInputStream());
-             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))
-        ) {
-            return readResult(id, size, in, out, dIn);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private long postTask(Matrix matrix) {
-        try (Socket socket = new Socket(host, port);
-             var dOut = new DataOutputStream(socket.getOutputStream());
-             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))
-        ) {
-            return writeTask(matrix, in, out, dOut);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     private ResponseType getResponseType(BufferedReader in) {
         String line;
         try {
@@ -141,7 +119,7 @@ public class Client implements Runnable {
         return ResponseType.valueOf(line);
     }
 
-    private long writeTask(Matrix matrix, BufferedReader in, PrintWriter out, DataOutputStream dOut) throws IOException {
+    private long postNewTask(Matrix matrix, BufferedReader in, PrintWriter out) {
         out.println(RequestType.POST_NEW_TASK);
         out.println(Prefix.THREADS.v + threadNumber);
         out.println(Prefix.SIZE.v + matrix.size);
@@ -155,7 +133,7 @@ public class Client implements Runnable {
             }
             return -1;
         }
-        MatrixLoader.write(dOut, matrix.data, toString());
+        MatrixLoader.write(out, matrix.data, toString());
         return parseLong(in, Prefix.ID);
     }
 
@@ -202,7 +180,7 @@ public class Client implements Runnable {
         throw e;
     }
 
-    private Result readResult(long id, int size, BufferedReader in, PrintWriter out, DataInputStream dIn) {
+    private Result getResult(long id, int size, BufferedReader in, PrintWriter out) {
         out.println(RequestType.GET_RESULT);
         out.println(Prefix.ID.v + id);
         out.println("\r\n");
@@ -213,8 +191,9 @@ public class Client implements Runnable {
                 case BAD_REQUEST -> printBadRequestAndThrow(in, new IllegalStateException());
                 case OK -> {
                     long executionTime = parseLong(in, Prefix.TIME);
+                    System.out.println("before");
+                    Matrix matrix = new Matrix(MatrixLoader.read(in, size, toString()));
                     System.out.println(this + " executionTime: " + executionTime);
-                    Matrix matrix = new Matrix(MatrixLoader.read(dIn, size, toString()));
                     yield new Result(matrix, executionTime);
                 }
             };

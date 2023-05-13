@@ -9,7 +9,10 @@ import lab4.model.Header;
 import lab4.model.Status;
 import lab4.model.Task;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
@@ -39,8 +42,8 @@ public class ClientHandler implements Runnable {
 
     @Override
     public void run() {
-        try (var in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-             var out = new PrintWriter(clientSocket.getOutputStream(), true);
+        try (BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+             PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
              var socketWrapper = new SocketWrapper(clientSocket)
         ) {
             socketWrapper.clientSocket.setSoTimeout(TIMEOUT);
@@ -48,7 +51,7 @@ public class ClientHandler implements Runnable {
             Header header = readHeader(in);
             System.out.println(header);
             switch (header.type()) {
-                case POST_NEW_TASK -> addNewTask(out, header.parameters());
+                case POST_NEW_TASK -> addNewTask(in, out, header.parameters());
                 case START_TASK -> startTask(out, header.parameters());
                 case GET_RESULT -> getTaskResult(out, header.parameters());
                 case GET_TASK_STATUS -> getTaskStatus(out, header.parameters());
@@ -86,14 +89,11 @@ public class ClientHandler implements Runnable {
         printlnBadRequest(out, "!(parameters instanceof TaskId(var id))");
     }
 
-    private void addNewTask(PrintWriter out, HeaderParametersHolder parameters) throws IOException {
+    private void addNewTask(BufferedReader in, PrintWriter out, HeaderParametersHolder parameters) throws IOException {
         if (parameters instanceof NewTaskParameter(int size, int numberOfThreads)) {
             out.println(OK);
             System.out.println("Started reading matrix of the size: " + size);
-            double[][] array;
-            try (var in = new DataInputStream(clientSocket.getInputStream())) {
-                array = MatrixLoader.read(in, size, "Matrix of the size: " + size);
-            }
+            double[][] array = MatrixLoader.read(in, size, "Matrix of the size: " + size);
             System.out.println("Finished reading matrix of the size: " + size);
             long id = getNextId();
             Task newTask = new Task(new Matrix(array), id, numberOfThreads);
@@ -120,7 +120,7 @@ public class ClientHandler implements Runnable {
         }
     }
 
-    private void getTaskResult(PrintWriter out, HeaderParametersHolder parameters) throws IOException {
+    private void getTaskResult(PrintWriter out, HeaderParametersHolder parameters) {
         if (parameters instanceof TaskId(var id)) {
             Task task = getTask(out, id);
             if (task == null) return;
@@ -138,7 +138,7 @@ public class ClientHandler implements Runnable {
         System.err.println(message);
     }
 
-    private void waitAndGetTaskResult(PrintWriter out, Task task) throws IOException {
+    private void waitAndGetTaskResult(PrintWriter out, Task task) {
         Task.Result result;
         System.out.println("Started async wait for: " + task);
         long start = System.nanoTime();
@@ -157,7 +157,7 @@ public class ClientHandler implements Runnable {
         sendResult(out, task.toString(), result);
     }
 
-    private void getCompletedTaskResult(PrintWriter out, Task task) throws IOException {
+    private void getCompletedTaskResult(PrintWriter out, Task task) {
         Task.Result result;
         try {
             result = task.getResult();
@@ -167,12 +167,10 @@ public class ClientHandler implements Runnable {
         sendResult(out, task.toString(), result);
     }
 
-    private void sendResult(PrintWriter out, String task, Task.Result result) throws IOException {
+    private void sendResult(PrintWriter out, String task, Task.Result result) {
         out.println(Prefix.TIME.v + result.timeOfExecution());
         System.out.println("Downloading the result of the task: " + task + " has started");
-        try (DataOutputStream dOut = new DataOutputStream(clientSocket.getOutputStream())) {
-            MatrixLoader.write(dOut, result.data(), task);
-        }
+        MatrixLoader.write(out, result.data(), task);
         out.println("\r\n");
         System.out.println("Downloading the result of the task: " + task + " has finished");
     }
