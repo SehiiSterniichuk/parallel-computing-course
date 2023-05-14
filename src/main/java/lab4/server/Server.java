@@ -1,6 +1,6 @@
-package lab4;
+package lab4.server;
 
-import lab4.model.Task;
+import lab4.server.model.Task;
 
 import java.io.IOException;
 import java.net.ServerSocket;

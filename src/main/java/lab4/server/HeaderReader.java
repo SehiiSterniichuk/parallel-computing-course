@@ -1,14 +1,14 @@
-package lab4;
+package lab4.server;
 
-import lab4.model.header.NewTaskParameter;
-import lab4.model.header.TaskId;
-import lab4.model.Header;
-import lab4.model.RequestType;
+import lab4.server.model.header.NewTaskParameter;
+import lab4.server.model.header.TaskId;
+import lab4.server.model.Header;
+import lab4.config.RequestType;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 
-import static lab4.model.header.Prefix.*;
+import static lab4.config.Prefix.*;
 
 public interface HeaderReader {
 

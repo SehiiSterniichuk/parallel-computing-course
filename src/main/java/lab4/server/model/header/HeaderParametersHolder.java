@@ -1,4 +1,4 @@
-package lab4.model.header;
+package lab4.server.model.header;
 
 public interface HeaderParametersHolder {
 }

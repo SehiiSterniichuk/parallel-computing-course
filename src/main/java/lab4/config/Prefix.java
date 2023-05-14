@@ -1,4 +1,4 @@
-package lab4.model.header;
+package lab4.config;
 
 public enum Prefix {
     SIZE("size: "), THREADS("number-of-threads: "), ID("id: "), ERROR("error: "), TIME("execution-time: ");

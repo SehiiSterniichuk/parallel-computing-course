@@ -1,11 +1,11 @@
 package lab4.client;
 
 import lab1.Matrix;
-import lab4.MatrixLoader;
-import lab4.model.RequestType;
-import lab4.model.ResponseType;
-import lab4.model.Status;
-import lab4.model.header.Prefix;
+import lab4.server.MatrixLoader;
+import lab4.config.RequestType;
+import lab4.config.ResponseType;
+import lab4.config.Status;
+import lab4.config.Prefix;
 
 import java.io.*;
 import java.net.Socket;
@@ -138,7 +138,6 @@ public class Client implements Runnable {
         try {
             String line = in.readLine();
             ResponseType responseType = ResponseType.valueOf(line);
-            System.out.println("responseType: " + responseType);
             return switch (responseType) {
                 case BAD_REQUEST -> printBadRequestAndThrow(in, new IllegalStateException());
                 case OK -> {

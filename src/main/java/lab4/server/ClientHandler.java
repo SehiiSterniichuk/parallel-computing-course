@@ -1,23 +1,23 @@
-package lab4;
+package lab4.server;
 
 import lab1.Matrix;
-import lab4.model.header.HeaderParametersHolder;
-import lab4.model.header.NewTaskParameter;
-import lab4.model.header.Prefix;
-import lab4.model.header.TaskId;
-import lab4.model.Header;
-import lab4.model.Status;
-import lab4.model.Task;
+import lab4.server.model.header.HeaderParametersHolder;
+import lab4.server.model.header.NewTaskParameter;
+import lab4.config.Prefix;
+import lab4.server.model.header.TaskId;
+import lab4.server.model.Header;
+import lab4.config.Status;
+import lab4.server.model.Task;
 
 import java.io.*;
 import java.net.Socket;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static lab4.HeaderReader.readHeader;
-import static lab4.Server.TIMEOUT;
-import static lab4.model.ResponseType.BAD_REQUEST;
-import static lab4.model.ResponseType.OK;
+import static lab4.server.HeaderReader.readHeader;
+import static lab4.server.Server.TIMEOUT;
+import static lab4.config.ResponseType.BAD_REQUEST;
+import static lab4.config.ResponseType.OK;
 
 public class ClientHandler implements Runnable {
     private static final AtomicLong taskCounter = new AtomicLong(0);

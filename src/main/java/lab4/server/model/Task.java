@@ -1,6 +1,7 @@
-package lab4.model;
+package lab4.server.model;
 
 import lab1.Matrix;
+import lab4.config.Status;
 
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -66,9 +67,6 @@ public class Task implements Runnable {
         this.future = future;
     }
 
-    public int getNumberOfThreads() {
-        return numberOfThreads;
-    }
 
     public int size() {
         return matrix.size;
