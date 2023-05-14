@@ -1,7 +1,6 @@
 package lab4;
 
 import lab1.Matrix;
-import lab4.model.ResponseType;
 import lab4.model.header.HeaderParametersHolder;
 import lab4.model.header.NewTaskParameter;
 import lab4.model.header.Prefix;
@@ -50,7 +49,13 @@ public class ClientHandler implements Runnable {
         ) {
             socketWrapper.clientSocket.setSoTimeout(TIMEOUT);
             System.out.println("\nClient has connected to handler: " + handlerId);
-            Header header = readHeader(in);
+            Header header;
+            try {
+                header = readHeader(in);
+            } catch (RuntimeException e) {
+                printlnBadRequest(out, e.getMessage());
+                return;
+            }
             System.out.println(header);
             switch (header.type()) {
                 case POST_NEW_TASK -> addNewTask(out, header.parameters(), inD);
@@ -58,7 +63,10 @@ public class ClientHandler implements Runnable {
                 case GET_TASK_STATUS -> getTaskStatus(out, header.parameters(), dOut);
                 case GET_RESULT -> getTaskResult(out, header.parameters(), dOut);
                 case BAD_REQUEST -> printlnBadRequest(out, "Undefined command");
-                case SHUTDOWN -> shutdownCallback.run();
+                case SHUTDOWN -> {
+                    out.println(OK);
+                    shutdownCallback.run();
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -87,7 +95,7 @@ public class ClientHandler implements Runnable {
                 return null;
             });
             task.setFuture(submit);
-
+            return;
         }
         printlnBadRequest(out, "!(parameters instanceof TaskId(var id))");
     }
@@ -122,7 +130,7 @@ public class ClientHandler implements Runnable {
             }
             Status status = task.getStatus();
             out.println(status);
-            if(status == Status.DONE){
+            if (status == Status.DONE) {
                 out.println(OK);
                 getCompletedTaskResult(out, task, dOut);
             }
@@ -180,7 +188,6 @@ public class ClientHandler implements Runnable {
         out.println(Prefix.TIME.v + result.timeOfExecution());
         System.out.println("Downloading the result of the task: " + task + " has started");
         MatrixLoader.write(dOut, result.data(), task);
-        out.println("\r\n");
         System.out.println("Downloading the result of the task: " + task + " has finished");
     }
 

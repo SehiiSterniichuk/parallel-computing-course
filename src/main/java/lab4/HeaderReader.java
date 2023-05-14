@@ -43,11 +43,7 @@ public interface HeaderReader {
     }
 
     static Header getHeaderWithNewTaskParams(int size, int numberOfThreads) {
-        try {
-            lab1.Main.checkParameters(size, numberOfThreads);
-        } catch (IllegalArgumentException e) {
-            return new Header(RequestType.BAD_REQUEST, null);
-        }
+        lab1.Main.checkParameters(size, numberOfThreads);
         return new Header(RequestType.POST_NEW_TASK, new NewTaskParameter(size, numberOfThreads));
     }
 

@@ -61,7 +61,7 @@ public class Client implements Runnable {
     private void work() {
         if (size < 1) {
             System.out.println("Killer client has been called");
-            request((in, out) -> shutdownServer(out));
+            request(this::shutdownServer);
             return;
         }
         taskId = postTask();
@@ -191,9 +191,14 @@ public class Client implements Runnable {
         return ResponseType.valueOf(line);
     }
 
-    private Void shutdownServer(PrintWriter out) {
+    private Void shutdownServer(BufferedReader in, PrintWriter out) {
         out.println(RequestType.SHUTDOWN);
         out.println();
+        try {
+            System.out.println("SHUTDOWN response: " + in.readLine());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
         return null;
     }
 
