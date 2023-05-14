@@ -8,9 +8,8 @@ public interface MatrixLoader {
         long start = System.nanoTime();
         int size = data.length;
         for (int i = 0; i < size; i++) {
-            double[] row = data[i];
-            for (double v : row) {
-                out.writeDouble(v);
+            for (int j = 0; j < size; j++) {
+                out.writeDouble(data[i][j]);
             }
             if (size >= 2000 && i % 1000 == 0) {
                 System.out.printf("Writing matrix of the size: %d, row: %d\n", size, i);

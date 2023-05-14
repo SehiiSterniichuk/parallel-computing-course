@@ -15,9 +15,9 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static lab4.HeaderReader.readHeader;
+import static lab4.Server.TIMEOUT;
 import static lab4.model.ResponseType.BAD_REQUEST;
 import static lab4.model.ResponseType.OK;
-import static lab4.Server.TIMEOUT;
 
 public class ClientHandler implements Runnable {
     private static final AtomicLong taskCounter = new AtomicLong(0);
@@ -43,39 +43,45 @@ public class ClientHandler implements Runnable {
     public void run() {
         try (var in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
              var out = new PrintWriter(clientSocket.getOutputStream(), true);
-             var socketWrapper = new SocketWrapper(clientSocket);
+             @SuppressWarnings("unused") var socketWrapper = new SocketWrapper(clientSocket);
              var dOut = new DataOutputStream(clientSocket.getOutputStream());
              var inD = new DataInputStream(clientSocket.getInputStream())
         ) {
-            socketWrapper.clientSocket.setSoTimeout(TIMEOUT);
             System.out.println("\nClient has connected to handler: " + handlerId);
-            Header header;
-            try {
-                header = readHeader(in);
-            } catch (RuntimeException e) {
-                printlnBadRequest(out, e.getMessage());
-                return;
-            }
-            System.out.println(header);
-            switch (header.type()) {
-                case POST_NEW_TASK -> addNewTask(out, header.parameters(), inD);
-                case START_TASK -> startTask(out, header.parameters());
-                case GET_TASK_STATUS -> getTaskStatus(out, header.parameters(), dOut);
-                case GET_RESULT -> getTaskResult(out, header.parameters(), dOut);
-                case BAD_REQUEST -> printlnBadRequest(out, "Undefined command");
-                case SHUTDOWN -> {
-                    out.println(OK);
-                    shutdownCallback.run();
+            boolean isWorking = true;
+            socketWrapper.clientSocket.setSoTimeout(TIMEOUT);
+            while (isWorking) {
+                System.out.println();
+                Header header;
+                try {
+                    header = readHeader(in);
+                } catch (RuntimeException e) {
+                    printlnBadRequest(out, e.getMessage());
+                    return;
                 }
+                System.out.println(header);
+                isWorking = switch (header.type()) {
+                    case POST_NEW_TASK -> addNewTask(out, header.parameters(), inD);
+                    case START_TASK -> startTask(out, header.parameters());
+                    case GET_TASK_STATUS -> getTaskStatus(out, header.parameters(), dOut);
+                    case GET_RESULT -> getTaskResult(out, header.parameters(), dOut);
+                    case BAD_REQUEST -> printlnBadRequest(out, "Undefined command");
+                    case SHUTDOWN -> {
+                        out.println(OK);
+                        shutdownCallback.run();
+                        yield false;
+                    }
+                };
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private void printlnBadRequest(PrintWriter out, String error) {
+    private boolean printlnBadRequest(PrintWriter out, String error) {
         out.println(BAD_REQUEST);
         out.println(Prefix.ERROR + error);
+        return false;
     }
 
     private void printfBadRequest(PrintWriter out, String format, Object... args) {
@@ -83,24 +89,25 @@ public class ClientHandler implements Runnable {
     }
 
 
-    private void startTask(PrintWriter out, HeaderParametersHolder parameters) {
+    private boolean startTask(PrintWriter out, HeaderParametersHolder parameters) {
         if (parameters instanceof TaskId(var id)) {
             Task task = getTask(out, id);
             if (task == null || task.getStatus() != Status.WAITING) {
                 printfBadRequest(out, "Task %d not found or not started", id);
-                return;
+                return false;
             }
             Future<Void> submit = taskExecutor.submit(() -> {
                 task.run();
                 return null;
             });
             task.setFuture(submit);
-            return;
+            return true;
         }
         printlnBadRequest(out, "!(parameters instanceof TaskId(var id))");
+        return false;
     }
 
-    private void addNewTask(PrintWriter out, HeaderParametersHolder parameters, DataInputStream in) throws IOException {
+    private boolean addNewTask(PrintWriter out, HeaderParametersHolder parameters, DataInputStream in) throws IOException {
         if (parameters instanceof NewTaskParameter(int size, int numberOfThreads)) {
             out.println(OK);
             System.out.println("Started reading matrix of the size: " + size);
@@ -111,9 +118,10 @@ public class ClientHandler implements Runnable {
             Task newTask = new Task(new Matrix(array), id, numberOfThreads);
             map.put(id, newTask);
             out.println(Prefix.ID.v + id);
-            return;
+            return true;
         }
         printlnBadRequest(out, "!(parameters instanceof NewTaskParameter)");
+        return false;
     }
 
     private long getNextId() {
@@ -121,38 +129,44 @@ public class ClientHandler implements Runnable {
         return taskCounter.getAndIncrement();
     }
 
-    private void getTaskStatus(PrintWriter out, HeaderParametersHolder parameters, DataOutputStream dOut) throws IOException {
-        if (parameters instanceof TaskId(var id)) {
-            Task task = getTask(out, id);
-            if (task == null) {
-                printfBadRequest(out, "Task %d not found", id);
-                return;
-            }
-            Status status = task.getStatus();
-            out.println(status);
-            if (status == Status.DONE) {
-                out.println(OK);
-                getCompletedTaskResult(out, task, dOut);
-            }
+    private boolean getTaskStatus(PrintWriter out, HeaderParametersHolder parameters, DataOutputStream dOut) throws IOException {
+        if (!(parameters instanceof TaskId(var id))) {
+            printlnBadRequest(out, "!(parameters instanceof TaskId(var id))");
+            return false;
         }
+        Task task = getTask(out, id);
+        if (task == null) {
+            printfBadRequest(out, "Task %d not found", id);
+            return false;
+        }
+        Status status = task.getStatus();
+        out.println(status);
+        System.out.println(status);
+        if (status == Status.DONE) {
+            out.println(OK);
+            getCompletedTaskResult(out, task, dOut);
+        }
+        return true;
     }
 
-    private void getTaskResult(PrintWriter out, HeaderParametersHolder parameters, DataOutputStream dOut) throws IOException {
-        if (parameters instanceof TaskId(var id)) {
-            Task task = getTask(out, id);
-            if (task == null) return;
-            Status status = task.getStatus();
-            switch (status) {
-                case DONE -> getCompletedTaskResult(out, task, dOut);
-                case RUNNING -> waitAndGetTaskResult(out, task, dOut);
-                case WAITING -> printfBadRequest(out, "Task %d has not yet been started to get it", id);
-            }
-            if (status == Status.DONE) map.remove(id);
-            return;
+    private boolean getTaskResult(PrintWriter out, HeaderParametersHolder parameters, DataOutputStream dOut) throws IOException {
+        if (!(parameters instanceof TaskId(var id))) {
+            String message = "!(parameters instanceof TaskId)";
+            printlnBadRequest(out, message);
+            System.err.println(message);
+            return false;
         }
-        String message = "!(parameters instanceof TaskId)";
-        printlnBadRequest(out, message);
-        System.err.println(message);
+        Task task = getTask(out, id);
+        if (task == null) return false;
+        Status status = task.getStatus();
+        switch (status) {
+            case DONE -> getCompletedTaskResult(out, task, dOut);
+            case RUNNING -> waitAndGetTaskResult(out, task, dOut);
+            case WAITING -> printfBadRequest(out, "Task %d has not yet been started to get it", id);
+        }
+        boolean isDownloaded = task.getStatus() == Status.DONE;
+        if (isDownloaded) map.remove(id);
+        return !isDownloaded;
     }
 
     private void waitAndGetTaskResult(PrintWriter out, Task task, DataOutputStream dOut) throws IOException {
@@ -186,6 +200,7 @@ public class ClientHandler implements Runnable {
 
     private void sendResult(PrintWriter out, String task, Task.Result result, DataOutputStream dOut) throws IOException {
         out.println(Prefix.TIME.v + result.timeOfExecution());
+//        out.println("\r\n");
         System.out.println("Downloading the result of the task: " + task + " has started");
         MatrixLoader.write(dOut, result.data(), task);
         System.out.println("Downloading the result of the task: " + task + " has finished");

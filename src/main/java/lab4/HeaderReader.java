@@ -59,7 +59,7 @@ public interface HeaderReader {
         try {
             type = RequestType.valueOf(input);
         } catch (IllegalArgumentException e) {
-            type = RequestType.BAD_REQUEST;
+            throw new IllegalArgumentException("Bad request: " + input);
         }
         return type;
     }

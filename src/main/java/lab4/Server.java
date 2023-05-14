@@ -15,7 +15,7 @@ public class Server {
     private final ExecutorService taskExecutor;
 
     static final long TIME_TO_WORK = TimeUnit.MINUTES.toMillis(40);
-    static final int TIMEOUT = (int) (TIME_TO_WORK/2);
+    static final int TIMEOUT = (int) (TIME_TO_WORK / 2);
 
     public Server(ServerSocket serverSocket) throws SocketException {
         this.serverSocket = serverSocket;
@@ -23,9 +23,11 @@ public class Server {
         map = new ConcurrentHashMap<>();
         taskExecutor = Executors.newSingleThreadExecutor();
     }
+
     private Thread workThread;
 
     private Thread mainThread;
+
     public void start() throws InterruptedException {
         workThread = new Thread(this::work);
         mainThread = Thread.currentThread();
