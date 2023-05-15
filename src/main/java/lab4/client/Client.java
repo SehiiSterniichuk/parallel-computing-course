@@ -85,7 +85,7 @@ public class Client implements Runnable {
         int i = 0;
         do {
             result = getStatusOrResult(taskId, size, in, out, dIn);
-            if (result == null){
+            if (result == null) {
                 System.out.println("Result is not ready yet." + this);
             }
             sleep(1);
@@ -123,18 +123,18 @@ public class Client implements Runnable {
         out.println(RequestType.GET_RESULT);
         out.println(Prefix.ID.v + taskId);
         out.println();
-        return readResult(size, in, dIn);
+        return readResult(out, size, in, dIn);
     }
 
     private Result getStatusOrResult(long id, int size, BufferedReader in, PrintWriter out, DataInputStream dIn) {
         Status status = getStatus(id, in, out);
         return switch (status) {
             case WAITING, RUNNING -> null;
-            case DONE -> readResult(size, in, dIn);
+            case DONE -> readResult(out, size, in, dIn);
         };
     }
 
-    private Result readResult(int size, BufferedReader in, DataInputStream dIn) {
+    private Result readResult(PrintWriter out, int size, BufferedReader in, DataInputStream dIn) {
         try {
             String line = in.readLine();
             ResponseType responseType = ResponseType.valueOf(line);
@@ -143,7 +143,10 @@ public class Client implements Runnable {
                 case OK -> {
                     long executionTime = parseLong(in, Prefix.TIME);
                     System.out.println("Downloading the result: " + this + " executionTime: " + executionTime);
+                    out.println(ResponseType.OK);
                     double[][] read = MatrixLoader.read(dIn, size, toString());
+                    out.println(ResponseType.OK);
+                    out.flush();
                     Matrix matrix = new Matrix(read);
                     yield new Result(matrix, executionTime);
                 }
@@ -175,7 +178,6 @@ public class Client implements Runnable {
         }
     }
 
-
     private long writeTask(Matrix matrix, BufferedReader in, PrintWriter out, DataOutputStream dOut) throws IOException {
         out.println(RequestType.POST_NEW_TASK);
         out.println(Prefix.THREADS.v + threadNumber);
@@ -196,9 +198,13 @@ public class Client implements Runnable {
 
     private long parseLong(BufferedReader in, Prefix p) {
         String substring;
+        String readLine = null;
         try {
-            String readLine = in.readLine();
+            readLine = in.readLine();
             substring = readLine.substring(p.v.length());
+        } catch (StringIndexOutOfBoundsException e) {
+            System.err.println(readLine);
+            throw e;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

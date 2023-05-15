@@ -38,7 +38,6 @@ public class Matrix {
 //            var temp = data[row1];
 //            data[row1] = data[row2];
 //            data[row2] = temp;
-
     }
 
     @SuppressWarnings("unused")

@@ -4,6 +4,7 @@ import lab4.server.model.Task;
 
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.util.concurrent.*;
@@ -52,8 +53,16 @@ public class Server {
         try (var clientHandlerExecutor = (ThreadPoolExecutor) Executors.newFixedThreadPool(3)) {
             while (isWorking || !clientHandlerExecutor.getQueue().isEmpty() ||
                     clientHandlerExecutor.getActiveCount() > 0 || !map.isEmpty()) {
-                ClientHandler handler = new ClientHandler(serverSocket.accept(), taskExecutor, map, this::killServer);
-                clientHandlerExecutor.submit(handler);
+                Socket accept = serverSocket.accept();
+                ClientHandler handler = new ClientHandler(accept, taskExecutor, map, this::killServer);
+                clientHandlerExecutor.submit(()->{
+                    handler.run();
+                    try {
+                        accept.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                });
             }
         } catch (SocketTimeoutException e) {
             System.err.println("Timeout");
