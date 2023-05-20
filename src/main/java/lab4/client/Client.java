@@ -224,9 +224,7 @@ public class Client implements Runnable {
         out.println(Prefix.ID.v + id);
         out.println();
         try {
-            String line;
-            line = in.readLine();
-            ResponseType responseType = ResponseType.valueOf(line);
+            ResponseType responseType = getResponseType(in);
             return switch (responseType) {
                 case BAD_REQUEST -> printBadRequestAndThrow(in, new IllegalArgumentException());
                 case OK -> Status.valueOf(in.readLine());

@@ -50,7 +50,7 @@ public class Server {
 
 
     private void work() {
-        try (var clientHandlerExecutor = (ThreadPoolExecutor) Executors.newFixedThreadPool(3)) {
+        try (var clientHandlerExecutor = (ThreadPoolExecutor) Executors.newFixedThreadPool(5)) {
             while (isWorking || !clientHandlerExecutor.getQueue().isEmpty() ||
                     clientHandlerExecutor.getActiveCount() > 0 || !map.isEmpty()) {
                 Socket accept = serverSocket.accept();

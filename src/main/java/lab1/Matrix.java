@@ -34,6 +34,12 @@ public class Matrix {
             double temp = data[row1][i];
             data[row1][i] = data[row2][i];
             data[row2][i] = temp;
+
+        }
+        try {
+            Thread.sleep(3);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
         }
 //            var temp = data[row1];
 //            data[row1] = data[row2];
