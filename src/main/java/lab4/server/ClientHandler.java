@@ -93,13 +93,10 @@ public class ClientHandler implements Runnable {
         if (parameters instanceof TaskId(var id)) {
             Task task = getTask(out, id);
             if (task == null || task.getStatus() != Status.WAITING) {
-                printfBadRequest(out, "Task %d not found or not started", id);
+                printfBadRequest(out, "Task %d not found or already started", id);
                 return false;
             }
-            Future<Void> submit = taskExecutor.submit(() -> {
-                task.run();
-                return null;
-            });
+            Future<Task.Result> submit = taskExecutor.submit(task::run);
             task.setFuture(submit);
             return true;
         }
@@ -129,7 +126,7 @@ public class ClientHandler implements Runnable {
         return taskCounter.getAndIncrement();
     }
 
-    private boolean getTaskStatus(BufferedReader in, PrintWriter out, HeaderParametersHolder parameters, DataOutputStream dOut) throws IOException {
+    private boolean getTaskStatus(BufferedReader in, PrintWriter out, HeaderParametersHolder parameters, DataOutputStream dOut)  {
         if (!(parameters instanceof TaskId(var id))) {
             printlnBadRequest(out, "!(parameters instanceof TaskId(var id))");
             return false;
@@ -149,7 +146,7 @@ public class ClientHandler implements Runnable {
         return true;
     }
 
-    private boolean getTaskResult(BufferedReader in, PrintWriter out, HeaderParametersHolder parameters, DataOutputStream dOut) throws IOException {
+    private boolean getTaskResult(BufferedReader in, PrintWriter out, HeaderParametersHolder parameters, DataOutputStream dOut)  {
         if (!(parameters instanceof TaskId(var id))) {
             String message = "!(parameters instanceof TaskId)";
             printlnBadRequest(out, message);
@@ -168,26 +165,29 @@ public class ClientHandler implements Runnable {
         return !isDownloaded;
     }
 
-    private void waitAndGetTaskResult(BufferedReader in, PrintWriter out, Task task, DataOutputStream dOut) throws IOException {
-        Task.Result result;
+    private void waitAndGetTaskResult(BufferedReader in, PrintWriter out, Task task, DataOutputStream dOut) {
         System.out.println("Started async wait for: " + task);
         long start = System.nanoTime();
+        CompletableFuture<Task.Result> completableFuture = CompletableFuture.supplyAsync(() -> {
+            try {
+                return task.getResult(WAIT_RESULT_TIME, WAIT_RESULT_UNITS);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+        CompletableFuture<Void> sendFuture = completableFuture.thenAccept(result -> {
+            long time = (System.nanoTime() - start) / 1000;
+            System.out.println("Finished async wait for: " + task + " waiting time: " + time);
+            sendResult(in, out, task.toString(), result, dOut);
+        });
         try {
-            result = task.getResult(WAIT_RESULT_TIME, WAIT_RESULT_UNITS);
-        } catch (TimeoutException e) {
-            String message = "Timeout waiting for " + task;
-            System.err.println(message);
-            printlnBadRequest(out, message);
-            return;
+            sendFuture.get();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        long time = (System.nanoTime() - start) / 1000;
-        System.out.println("Finished async wait for: " + task + " waiting time: " + time);
-        sendResult(in, out, task.toString(), result, dOut);
     }
 
-    private void getCompletedTaskResult(BufferedReader in, PrintWriter out, Task task, DataOutputStream dOut) throws IOException {
+    private void getCompletedTaskResult(BufferedReader in, PrintWriter out, Task task, DataOutputStream dOut) {
         Task.Result result;
         try {
             result = task.getResult();
@@ -197,12 +197,17 @@ public class ClientHandler implements Runnable {
         sendResult(in, out, task.toString(), result, dOut);
     }
 
-    private void sendResult(BufferedReader in, PrintWriter out, String task, Task.Result result, DataOutputStream dOut) throws IOException {
+    private void sendResult(BufferedReader in, PrintWriter out, String task, Task.Result result, DataOutputStream dOut) {
         out.println(Prefix.TIME.v + result.timeOfExecution());
-        ResponseType type = ResponseType.valueOf(in.readLine());
-        isOk(type, task, " has started", "Client not ready. ");
-        MatrixLoader.write(dOut, result.data(), task);
-        type = ResponseType.valueOf(in.readLine());
+        ResponseType type;
+        try {
+            type = ResponseType.valueOf(in.readLine());
+            isOk(type, task, " has started", "Client not ready. ");
+            MatrixLoader.write(dOut, result.data(), task);
+            type = ResponseType.valueOf(in.readLine());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
         isOk(type, task, " has finished", "Bad download. ");
     }
 

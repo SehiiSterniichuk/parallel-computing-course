@@ -8,7 +8,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-public class Task implements Runnable {
+public class Task {
     private final Matrix matrix;
 
     private final long id;
@@ -24,13 +24,12 @@ public class Task implements Runnable {
         this.numberOfThreads = numberOfThreads;
     }
 
-    @Override
-    public void run() {
+    public Result run() {
         status = Status.RUNNING;
         timeOfExecution = lab1.Main.solve(matrix, numberOfThreads);
         status = Status.DONE;
+        return createResult();
     }
-
 
     public Status getStatus() {
         return status;
@@ -38,14 +37,12 @@ public class Task implements Runnable {
 
     public Result getResult() throws ExecutionException, InterruptedException {
         checkFutureNull();
-        future.get();
-        return createResult();
+        return future.get();
     }
 
     public Result getResult(long time, TimeUnit unit) throws ExecutionException, InterruptedException, TimeoutException {
         checkFutureNull();
-        future.get(time, unit);
-        return createResult();
+        return future.get(time, unit);
     }
 
     private Result createResult() {
@@ -61,9 +58,9 @@ public class Task implements Runnable {
         }
     }
 
-    private Future<Void> future = null;
+    private Future<Task.Result> future = null;
 
-    public void setFuture(Future<Void> future) {
+    public void setFuture(Future<Task.Result> future) {
         this.future = future;
     }
 
