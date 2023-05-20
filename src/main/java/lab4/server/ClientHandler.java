@@ -161,8 +161,7 @@ public class ClientHandler implements Runnable {
         Status status = task.getStatus();
         switch (status) {
             case DONE -> getCompletedTaskResult(in, out, task, dOut);
-            case RUNNING -> waitAndGetTaskResult(in, out, task, dOut);
-            case WAITING -> printfBadRequest(out, "Task %d has not yet been started to get it", id);
+            case RUNNING, WAITING -> waitAndGetTaskResult(in, out, task, dOut);
         }
         boolean isDownloaded = task.getStatus() == Status.DONE;
         if (isDownloaded) map.remove(id);
