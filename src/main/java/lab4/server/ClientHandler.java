@@ -166,7 +166,7 @@ public class ClientHandler implements Runnable {
     }
 
     private void waitAndGetTaskResult(BufferedReader in, PrintWriter out, Task task, DataOutputStream dOut) {
-        System.out.println("Started async wait for: " + task);
+        System.out.println("Started waiting for: " + task);
         long start = System.nanoTime();
         CompletableFuture<Task.Result> completableFuture = CompletableFuture.supplyAsync(() -> {
             try {
@@ -177,7 +177,7 @@ public class ClientHandler implements Runnable {
         });
         CompletableFuture<Void> sendFuture = completableFuture.thenAccept(result -> {
             long time = (System.nanoTime() - start) / 1000;
-            System.out.println("Finished async wait for: " + task + " waiting time: " + time);
+            System.out.println("Finished waiting for: " + task + " waiting time: " + time);
             sendResult(in, out, task.toString(), result, dOut);
         });
         try {
