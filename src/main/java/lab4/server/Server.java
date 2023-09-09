@@ -43,14 +43,13 @@ public class Server {
             System.out.println("The server was killed while sleeping...");
         }
         isWorking = false;
-        workThread.interrupt();
-        taskExecutor.shutdown();
+        taskExecutor.close();//also uses shutdown
         System.out.println("taskExecutor.shutdown()");
     }
 
 
     private void work() {
-        try (var clientHandlerExecutor = (ThreadPoolExecutor) Executors.newFixedThreadPool(5)) {
+        try (var clientHandlerExecutor = (ThreadPoolExecutor) Executors.newFixedThreadPool(3)) {
             while (isWorking || !clientHandlerExecutor.getQueue().isEmpty() ||
                     clientHandlerExecutor.getActiveCount() > 0 || !map.isEmpty()) {
                 Socket accept = serverSocket.accept();
