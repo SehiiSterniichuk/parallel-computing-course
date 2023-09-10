@@ -1,4 +1,4 @@
-# Parallel Computing course at 'Kyiv Polytechnic Institute' <img src="https://kpi.ua/files/images-page/kpi-big-logo.png" height="24">
+# Parallel Computing course at 'Kyiv Polytechnic Institute'
 
 Study of parallel computing technologies within limits one computing node and in a distributed environment.
 
