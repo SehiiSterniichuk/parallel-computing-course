@@ -134,7 +134,9 @@ Task: In the client-server app from lab4, use the future-promise mechanism to wo
 <img style="display: block; width: 55%; margin-block: 1rem; margin-inline: auto;" src="labs/client_server.png" alt="Client-server communication schema">
 <p style="width: 50%; margin-bottom: 1rem; margin-inline:auto; text-align: center ">Fig. 1. Part of the mechanism (red rectangle), which must be implemented through the future-promise</p>
 
-Result: The client can now request the result even if the task is still running. So, in this case, the client waited 13394 units of time
+
+<p>Result: The client can now request the result even if the task is still running. So, in this case, the client waited 13394 units of time</p>
+
 <img style="display: block; width: 75%; margin-block: 1rem; margin-inline: auto;" src="labs/lab5.jpg" alt="Future-promise example">
 
 
